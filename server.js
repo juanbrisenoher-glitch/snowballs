@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -8,100 +7,156 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// ============================================
+// YOUR COMPLETE DATA (copied from your GitHub)
+// ============================================
+
+const PLANS = [
+  {id:1,carrier:"Alignment",plan_name:"Alignment the One + Walgreens (HMO-POS)",giveback:0,moop:2950,specialist:15,dental_benefit:"$2,500 annual",otc_allowance:20,transportation:"34 one-way trips",vision_benefit:"$200 eyewear",hearing_benefit:"$195-$1,750 copay per aid",gym:"Covered",food_utilities:"$30 monthly"},
+  {id:2,carrier:"Alignment",plan_name:"Alignment SmartSavings (HMO-POS)",giveback:164.90,moop:6450,specialist:35,dental_benefit:"Preventive Only",otc_allowance:0,transportation:"Not Covered"},
+  {id:3,carrier:"Alignment",plan_name:"Alignment Heart & Diabetes (HMO-POS C-SNP)",giveback:0,moop:2400,specialist:15,dental_benefit:"$2,000 annual",otc_allowance:40,transportation:"50 one-way trips"},
+  {id:4,carrier:"Alignment",plan_name:"Alignment Dual Heart & Diabetes Plus (HMO C-SNP)",giveback:0,moop:0,specialist:0,dental_benefit:"$3,600 annual",otc_allowance:197,transportation:"50 one-way trips",food_utilities:"$197 monthly"},
+  {id:5,carrier:"Alignment",plan_name:"Alignment Total Dual+ (HMO-POS D-SNP)",giveback:0,moop:0,specialist:0,dental_benefit:"$2,700 annual",otc_allowance:197,transportation:"50 one-way trips"},
+  {id:6,carrier:"BCBS",plan_name:"BCBS Basic HMO",giveback:0,moop:3700,specialist:26,dental_benefit:"Preventive Only",otc_allowance:20,transportation:"Not Covered"},
+  {id:7,carrier:"BCBS",plan_name:"BCBS Dental Premier PPO",giveback:0,moop:8000,specialist:47,dental_benefit:"Preventive Only",otc_allowance:0,transportation:"Not Covered"},
+  {id:8,carrier:"Humana",plan_name:"Humana Gold Plus SNP-DE (HMO D-SNP)",giveback:0,moop:0,specialist:140,dental_benefit:"Covered",otc_allowance:0,food_utilities:"$125 monthly SSBCI"},
+  {id:9,carrier:"UnitedHealthcare",plan_name:"UHC Dual Complete TX-Q2 HMO-POS (D-SNP)",giveback:0,moop:0,dental_benefit:"$1,500 annual",otc_allowance:99,food_utilities:"$99 monthly",transportation:"24 one-way trips"},
+  {id:10,carrier:"UnitedHealthcare",plan_name:"UHC Dual Complete TX-D001 PPO (D-SNP)",giveback:0,moop:0,dental_benefit:"$1,500 annual",otc_allowance:60,food_utilities:"$60 monthly"},
+  {id:11,carrier:"UnitedHealthcare",plan_name:"UHC Dual Complete TX-S4 HMO-POS (D-SNP)",giveback:0,moop:0,dental_benefit:"$1,500 annual",otc_allowance:143,food_utilities:"$143 monthly",transportation:"48 one-way trips"},
+  {id:12,carrier:"HealthSpring/Cigna",plan_name:"HealthSpring Preferred (HMO)",giveback:0,moop:3500,specialist:15,dental_benefit:"$2,700 annual",otc_allowance:28,transportation:"Unlimited"},
+  {id:13,carrier:"HealthSpring/Cigna",plan_name:"HealthSpring Preferred Savings (HMO)",giveback:145,moop:6775,specialist:45,dental_benefit:"$2,500 annual",otc_allowance:33},
+  {id:14,carrier:"HealthSpring/Cigna",plan_name:"HealthSpring TotalCare (HMO D-SNP)",giveback:0,moop:3400,specialist:0,dental_benefit:"$3,000 annual",otc_allowance:67}
+];
+
+const PROVIDERS = [
+  {id:1,name:"Dr. Maria Garcia",specialty:"Internal Medicine",clinic_name:"El Paso Medical Group",city:"El Paso",phone:"(915) 555-0101",accepting_new_patients:true,plans_accepted:"UnitedHealthcare, Humana, Wellcare"},
+  {id:2,name:"Dr. James Patel",specialty:"Cardiology",clinic_name:"West Texas Heart Center",city:"El Paso",phone:"(915) 555-0202",accepting_new_patients:true,plans_accepted:"UnitedHealthcare, Humana, Alignment, Devoted"},
+  {id:3,name:"Dr. Ana Lopez",specialty:"Endocrinology",clinic_name:"El Paso Diabetes & Endocrine",city:"El Paso",phone:"(915) 555-0303",accepting_new_patients:true,plans_accepted:"All plans"}
+];
+
+const MEDICATIONS = [
+  {id:1,name:"Eliquis",what_it_treats:"Blood clots, stroke prevention",tier_typical:3,avg_monthly_cost_medicare:45},
+  {id:2,name:"Ozempic",what_it_treats:"Type 2 diabetes",tier_typical:3,avg_monthly_cost_medicare:60},
+  {id:3,name:"Metformin",what_it_treats:"Type 2 diabetes",tier_typical:1,avg_monthly_cost_medicare:5},
+  {id:4,name:"Lisinopril",what_it_treats:"High blood pressure",tier_typical:1,avg_monthly_cost_medicare:5},
+  {id:5,name:"Atorvastatin",what_it_treats:"High cholesterol",tier_typical:1,avg_monthly_cost_medicare:7}
+];
+
+// ============================================
+// API ENDPOINTS
+// ============================================
+
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    message: 'MERIDIAN backend is running'
-  });
+  res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// Smart chat endpoint — no database, no external API
-app.post('/api/chat', async (req, res) => {
+app.get('/api/plans', (req, res) => {
+  res.json(PLANS);
+});
+
+app.get('/api/providers', (req, res) => {
+  res.json(PROVIDERS);
+});
+
+app.get('/api/medications', (req, res) => {
+  res.json(MEDICATIONS);
+});
+
+// Main chat endpoint
+app.post('/api/chat', (req, res) => {
   const { messages } = req.body;
-  const lastMsg = messages?.[messages.length - 1]?.content?.toLowerCase() || '';
+  const userMsg = messages?.[messages.length - 1]?.content || '';
+  const lower = userMsg.toLowerCase();
   
-  let reply = "I'm MERIDIAN AI. I can help you find Medicare plans, check drug coverage, or explain benefits. Try asking:\n\n• 'Which plans have giveback?'\n• 'Show me lowest MOOP plans'\n• 'What dental benefits are available?'\n• 'What is a D-SNP plan?'";
+  let reply = "Hi! I'm MERIDIAN AI. I can help you find Medicare plans, check drug coverage, or find doctors. Try asking:\n\n• 'Which plans have giveback?'\n• 'Show me the lowest MOOP plans'\n• 'What dental benefits are available?'\n• 'Find a cardiologist in El Paso'";
   
-  if (lastMsg.includes('giveback')) {
-    reply = "💰 **Plans with Part B Giveback:**\n\n• HealthSpring Preferred Savings — $145/mo\n• HumanaChoice Giveback PPO — $120/mo\n• Alignment SmartSavings — $164.90/mo\n• Devoted Giveback — $184.70/mo\n• Wellcare Giveback HMO — $124/mo\n\nWant me to show you the lowest MOOP plans?";
-  }
-  else if (lastMsg.includes('moop') || lastMsg.includes('out of pocket')) {
-    reply = "📋 **Lowest MOOP plans:**\n\n• Alignment Heart & Diabetes — $2,400\n• Alignment the One + Walgreens — $2,950\n• Humana Gold Plus — $3,350\n• HealthSpring Preferred — $3,500\n\n✨ Several D-SNP plans have **$0 MOOP** — Wellpoint Full Dual, UHC Dual Complete, Humana D-SNP. Want to see those?";
-  }
-  else if (lastMsg.includes('dental')) {
-    reply = "🦷 **Best dental benefits:**\n\n• Devoted Core 007 — $3,500 reimbursement\n• Humana Gold Plus $14 — $5,000 (covers dentures)\n• Alignment Total Dual+ — $4,000\n• Wellcare Dual Liberty — $4,000\n\nWould you like more details on any of these?";
-  }
-  else if (lastMsg.includes('vision')) {
-    reply = "👓 **Vision benefits:**\n\n• Wellpoint Full Dual — $250 allowance\n• UHC Dual Complete TX-S4 — $350 allowance\n• Humana Gold Plus $14 — $350 allowance\n• Alignment Total Dual+ — $400 every 2 years\n\nWant to know which plans have the best hearing benefits?";
-  }
-  else if (lastMsg.includes('hearing')) {
-    reply = "🦻 **Hearing benefits:**\n\n• Wellpoint Full Dual — $3,000 allowance\n• UHC Dual Complete TX-S4 — $2,500 every 2 years\n• Wellcare Dual Liberty — $2,000 allowance\n• Alignment Total Dual+ — basic aids included\n\nNeed help with something else?";
-  }
-  else if (lastMsg.includes('transport') || lastMsg.includes('ride')) {
-    reply = "🚗 **Transportation benefits:**\n\n• HealthSpring Preferred — UNLIMITED trips\n• Humana Gold Plus $14 — 100 one-way trips\n• UHC Dual Complete TX-S4 — 48 one-way trips\n• Wellpoint Full Dual — 48 one-way trips\n\nWhich plan interests you most?";
-  }
-  else if (lastMsg.includes('otc') || lastMsg.includes('over the counter')) {
-    reply = "💊 **OTC allowances:**\n\n• Humana D-SNP — $215/month\n• Alignment Total Dual+ — $193/month\n• UHC Dual Complete TX-S4 — $143/month\n• Wellcare Dual Liberty — $123/month\n• Wellpoint Full Dual — $105/month\n\nWant to compare these plans in more detail?";
-  }
-  else if (lastMsg.includes('d-snp') || lastMsg.includes('dual eligible')) {
-    reply = "🏷️ **D-SNP plans (for dual-eligible Medicare + Medicaid):**\n\n• Wellpoint Full Dual — $0 MOOP, $3k hearing, $105 OTC\n• UHC Dual Complete TX-S4 — $0 MOOP, $143 OTC\n• Humana D-SNP — $0 MOOP, $215 OTC\n• Alignment Total Dual+ — $0 MOOP, $4k dental\n\nWould you like me to explain eligibility requirements?";
-  }
-  else if (lastMsg.includes('c-snp') || lastMsg.includes('chronic')) {
-    reply = "🫀 **C-SNP plans (chronic conditions like diabetes/heart disease):**\n\n• Alignment Heart & Diabetes — MOOP $2,400, $40 OTC\n• Humana C-SNP — MOOP $3,450, $75 OTC rollover\n• Devoted C-SNP — MOOP $3,750\n\nDo you have a specific chronic condition you need covered?";
-  }
-  else if (lastMsg.includes('eliquis')) {
-    reply = "💊 **Eliquis coverage:**\n\n• UHC Dual Complete — $0 copay, no prior auth\n• Wellcare Dual Liberty — $0 copay, no prior auth\n• Alignment — $45 copay, prior auth required\n• Humana — $45 copay, prior auth required\n• Devoted — 24% coinsurance, prior auth required\n\nNeed information about another medication?";
-  }
-  else if (lastMsg.includes('humira')) {
-    reply = "💉 **Humira coverage:**\n\n• UHC Dual Complete — $0 copay, no prior auth\n• Alignment — 32% coinsurance, prior auth required\n• Humana — 35% coinsurance, prior auth required\n• Devoted — 43% coinsurance, prior auth required\n\nWould you like to see alternative medications?";
-  }
-  else if (lastMsg.includes('ozempic')) {
-    reply = "💊 **Ozempic coverage:**\n\n• UHC Dual Complete — $0 copay, no prior auth\n• Alignment — $45 copay, prior auth required\n\nOzempic is typically Tier 3 on most plans. Would you like to compare with other diabetes medications?";
-  }
-  
-  res.json({ 
-    choices: [{ 
-      message: { content: reply } 
-    }] 
-  });
-});
-
-// Serve static files if public folder exists
-app.use(express.static(path.join(__dirname, 'public'), { fallthrough: true }));
-
-// Catch-all for frontend routing
-app.get('*', (req, res) => {
-  const indexPath = path.join(__dirname, 'public', 'index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      res.status(200).send(`
-        <!DOCTYPE html>
-        <html>
-        <head><title>MERIDIAN Backend</title></head>
-        <body>
-          <h1>MERIDIAN API Running ✅</h1>
-          <p>Health check: <a href="/api/health">/api/health</a></p>
-          <p>Chat endpoint: POST /api/chat</p>
-        </body>
-        </html>
-      `);
+  // GIVEBACK PLANS
+  if (lower.includes('giveback')) {
+    const gbPlans = PLANS.filter(p => p.giveback > 0);
+    if (gbPlans.length) {
+      reply = "💰 **Plans with Part B Giveback:**\n\n";
+      gbPlans.forEach(p => {
+        reply += `• ${p.carrier} ${p.plan_name} — $${p.giveback}/mo\n`;
+      });
+      reply += "\nWant me to show you the lowest MOOP plans instead?";
     }
-  });
+  }
+  // LOWEST MOOP
+  else if (lower.includes('moop') || lower.includes('out of pocket')) {
+    const sorted = [...PLANS].sort((a,b) => (a.moop || 9999) - (b.moop || 9999));
+    reply = "📋 **Lowest MOOP plans:**\n\n";
+    sorted.slice(0, 8).forEach(p => {
+      reply += `• ${p.carrier} ${p.plan_name} — MOOP $${p.moop === 0 ? '0' : p.moop.toLocaleString()}\n`;
+    });
+    if (sorted[0]?.moop === 0) reply += "\n✨ Several D-SNP plans have $0 MOOP!";
+  }
+  // DENTAL
+  else if (lower.includes('dental')) {
+    const dentalPlans = PLANS.filter(p => p.dental_benefit && !p.dental_benefit.includes('Preventive'));
+    if (dentalPlans.length) {
+      reply = "🦷 **Best dental benefits:**\n\n";
+      dentalPlans.forEach(p => {
+        reply += `• ${p.carrier} ${p.plan_name} — ${p.dental_benefit}\n`;
+      });
+    } else {
+      reply = "No plans with comprehensive dental benefits found in the current list.";
+    }
+  }
+  // OTC
+  else if (lower.includes('otc') || lower.includes('over the counter')) {
+    const otcPlans = PLANS.filter(p => p.otc_allowance > 0);
+    if (otcPlans.length) {
+      reply = "💊 **OTC allowances:**\n\n";
+      otcPlans.forEach(p => {
+        reply += `• ${p.carrier} ${p.plan_name} — $${p.otc_allowance}/mo\n`;
+      });
+    }
+  }
+  // TRANSPORTATION
+  else if (lower.includes('transport') || lower.includes('ride') || lower.includes('lyft')) {
+    const transportPlans = PLANS.filter(p => p.transportation && p.transportation !== 'Not Covered');
+    if (transportPlans.length) {
+      reply = "🚗 **Transportation benefits:**\n\n";
+      transportPlans.forEach(p => {
+        reply += `• ${p.carrier} ${p.plan_name} — ${p.transportation}\n`;
+      });
+    }
+  }
+  // PROVIDERS / DOCTORS
+  else if (lower.includes('doctor') || lower.includes('provider') || lower.includes('cardiologist') || lower.includes('find')) {
+    let specialty = '';
+    if (lower.includes('cardio')) specialty = 'Cardiology';
+    else if (lower.includes('endo')) specialty = 'Endocrinology';
+    else if (lower.includes('intern')) specialty = 'Internal Medicine';
+    
+    let matches = PROVIDERS;
+    if (specialty) matches = PROVIDERS.filter(p => p.specialty === specialty);
+    
+    if (matches.length) {
+      reply = "👨‍⚕️ **Providers in El Paso:**\n\n";
+      matches.forEach(p => {
+        reply += `• ${p.name} — ${p.specialty}\n  📍 ${p.clinic_name}\n  📞 ${p.phone}\n  ✅ Accepting new patients: ${p.accepting_new_patients ? 'Yes' : 'No'}\n  🩺 Plans: ${p.plans_accepted}\n\n`;
+      });
+    }
+  }
+  // DRUGS / MEDICATIONS
+  else if (lower.includes('eliquis')) {
+    const drug = MEDICATIONS.find(m => m.name === 'Eliquis');
+    reply = `💊 **Eliquis (apixaban)**\n\n• Treats: ${drug.what_it_treats}\n• Typical tier: ${drug.tier_typical}\n• Medicare cost: ~$${drug.avg_monthly_cost_medicare}/mo\n• Retail cost: ~$${drug.avg_monthly_cost_medicare * 10}/mo\n\nMost plans cover Eliquis on Tier 3 with prior authorization. Some D-SNP plans have $0 copay.`;
+  }
+  else if (lower.includes('ozempic')) {
+    reply = "💊 **Ozempic (semaglutide)**\n\n• Treats: Type 2 diabetes\n• Typical tier: 3\n• Medicare cost: ~$60/mo\n\nCoverage varies by plan. Prior authorization is common. Some D-SNP plans cover at $0. For weight loss, check with your doctor about alternatives.";
+  }
+  else if (lower.includes('metformin')) {
+    reply = "💊 **Metformin**\n\n• Treats: Type 2 diabetes\n• Typical tier: 1 (lowest cost)\n• Medicare cost: ~$5/mo\n\nThis is a preferred generic on almost all plans — very affordable.";
+  }
+  
+  res.json({ choices: [{ message: { content: reply } }] });
 });
 
-// Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 MERIDIAN backend running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`✅ MERIDIAN backend running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
-});
-
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, closing server...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
+  console.log(`📍 Plans: http://localhost:${PORT}/api/plans`);
+  console.log(`📍 Providers: http://localhost:${PORT}/api/providers`);
 });
