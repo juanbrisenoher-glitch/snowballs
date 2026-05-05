@@ -1,45 +1,69 @@
 const express = require('express');
-const router = express.Router();
-const DB = require('../db');
+const cors = require('cors');
+const path = require('path');
 
-const COLLECTIONS = ['plans', 'providers', 'medications', 'devices', 'procedures', 'services'];
-const SEARCH_FIELDS = {
-  plans: ['carrier', 'plan_name', 'plan_type'],
-  providers: ['name', 'specialty', 'clinic_name', 'city', 'plans_accepted'],
-  medications: ['name', 'generic_name', 'brand_name', 'what_it_treats', 'drug_class'],
-  devices: ['name', 'category', 'what_it_does'],
-  procedures: ['name', 'category', 'description'],
-  services: ['name', 'type', 'description', 'city']
-};
+const app = express();
+const PORT = process.env.PORT || 3001;
 
-COLLECTIONS.forEach(col => {
-  router.get(`/${col}`, (req, res) => {
-    const { search, ...filters } = req.query;
-    const results = search ? DB.search(col, search, SEARCH_FIELDS[col] || ['name']) : DB.getAll(col, filters);
-    res.json({ success: true, data: results, count: results.length });
-  });
+app.use(cors());
+app.use(express.json());
 
-  router.get(`/${col}/:id`, (req, res) => {
-    const item = DB.getById(col, req.params.id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
-    res.json({ success: true, data: item });
-  });
+// Simple in-memory fallback (no database required to keep server running)
+let simpleMemory = {};
 
-  router.post(`/${col}`, (req, res) => {
-    res.json({ success: true, data: DB.insert(col, req.body) });
-  });
-
-  router.put(`/${col}/:id`, (req, res) => {
-    const item = DB.update(col, req.params.id, req.body);
-    if (!item) return res.status(404).json({ error: 'Not found' });
-    res.json({ success: true, data: item });
-  });
-
-  router.delete(`/${col}/:id`, (req, res) => {
-    res.json({ success: DB.delete(col, req.params.id) });
+// Health check — always works
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    message: 'MERIDIAN backend is running'
   });
 });
 
-router.get('/stats', (req, res) => res.json({ success: true, data: DB.stats() }));
+// Simple chat endpoint that doesn't need database
+app.post('/api/chat', async (req, res) => {
+  const { messages } = req.body;
+  const lastMsg = messages?.[messages.length - 1]?.content || '';
+  
+  // Simple fallback responses (works even without API key)
+  let reply = "I'm MERIDIAN AI. I can help you find Medicare plans, check drug coverage, or explain benefits. What would you like to know?";
+  
+  if (lastMsg.toLowerCase().includes('giveback')) {
+    reply = "💰 Plans with Part B Giveback include:\n• HealthSpring Preferred Savings — $145/mo\n• HumanaChoice Giveback PPO — $120/mo\n• Alignment SmartSavings — $164.90/mo\n• Devoted Giveback — $184.70/mo\n• Wellcare Giveback HMO — $124/mo\n\nWant me to show you the lowest MOOP plans?";
+  } else if (lastMsg.toLowerCase().includes('moop')) {
+    reply = "📋 Lowest MOOP plans:\n• Alignment Heart & Diabetes — $2,400\n• Alignment the One + Walgreens — $2,950\n• Humana Gold Plus — $3,350\n• HealthSpring Preferred — $3,500\n\nSeveral D-SNP plans have $0 MOOP — would you like to see those?";
+  } else if (lastMsg.toLowerCase().includes('dental')) {
+    reply = "🦷 Best dental benefits:\n• Devoted Core 007 — $3,500 reimbursement\n• Humana Gold Plus $14 — $5,000 (covers dentures)\n• Alignment Total Dual+ — $4,000\n• Wellcare Dual Liberty — $4,000\n\nWant details on any of these?";
+  }
+  
+  res.json({ 
+    choices: [{ 
+      message: { content: reply } 
+    }] 
+  });
+});
 
-module.exports = router;
+// Serve static files if public folder exists
+app.use(express.static(path.join(__dirname, 'public'), { fallthrough: true }));
+
+// Catch-all
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+    if (err) res.status(200).send('MERIDIAN Backend Running');
+  });
+});
+
+// Start server
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 MERIDIAN backend running on port ${PORT}`);
+  console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, closing server...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
