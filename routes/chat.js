@@ -1,480 +1,147 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const https = require('https');
 const DB = require('../db');
-
-function buildFullContext() {
+ 
+const GROQ_API_KEY = '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';
+ 
+function searchDatabase(userMessage) {
+  const q = userMessage.toLowerCase();
   let context = '';
-
-  const plans = DB.getAll('plans');
-  if (plans.length > 0) {
-    context += '\n\n════ ALL MEDICARE PLANS ════\n';
-    plans.forEach(p => {
-      context += `\n▸ ${p.carrier} | ${p.plan_name} | Type: ${p.plan_type} | ID: ${p.plan_id||'N/A'}
-  Premium: $${p.premium??0}/mo | Giveback: $${p.giveback??0}/mo | MOOP: $${p.moop??'N/A'}
-  PCP: $${p.pcp??'N/A'} | Specialist: $${p.specialist??'N/A'} | Hospital: ${p.hospital??'N/A'}
-  ER: $${p.er??'N/A'} | Urgent Care: $${p.urgent_care??'N/A'} | Ambulance: $${p.ambulance??'N/A'}
-  Dental: ${p.dental_benefit??'N/A'} | Vision: ${p.vision_benefit??'N/A'} | Hearing: ${p.hearing_benefit??'N/A'}
-  OTC: $${p.otc_allowance??0}/mo | Food/Utilities: ${p.food_utilities??'N/A'} | Transportation: ${p.transportation??'N/A'}
-  Gym: ${p.gym??'N/A'} | PERS: ${p.pers??'N/A'} | Rx: ${p.rx??'N/A'} | Rx Deductible: ${p.rx_deductible??'N/A'}`;
-    });
-  }
-
-  const providers = DB.getAll('providers');
-  if (providers.length > 0) {
-    context += '\n\n════ ALL PROVIDERS ════\n';
-    providers.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.specialty??'N/A'} | ${p.clinic_name??'N/A'} | ${p.address??''} ${p.city??'El Paso'}, TX | Phone: ${p.phone??'N/A'} | Accepting: ${p.accepting_new_patients?'Yes':'No'} | Languages: ${p.languages??'N/A'} | Plans: ${p.plans_accepted??'N/A'}`;
-    });
-  }
-
-  const meds = DB.getAll('medications');
+ 
+  const meds = DB.search('medications', q, ['name', 'generic_name', 'brand_name', 'what_it_treats', 'drug_class']);
   if (meds.length > 0) {
-    context += '\n\n════ ALL MEDICATIONS ════\n';
-    meds.forEach(m => {
-      context += `\n▸ ${m.name}${m.generic_name?' ('+m.generic_name+')':''} | Class: ${m.drug_class??'N/A'} | Treats: ${m.what_it_treats??'N/A'} | Tier: ${m.tier_typical??'N/A'} | Retail: $${m.avg_monthly_cost_retail??'?'}/mo | Medicare: $${m.avg_monthly_cost_medicare??'?'}/mo`;
+    context += '\nMEDICATIONS:\n';
+    meds.slice(0,4).forEach(m => {
+      context += `• ${m.name}${m.generic_name ? ' (' + m.generic_name + ')' : ''}: treats ${m.what_it_treats || 'N/A'}. Tier ${m.tier_typical || 'N/A'}. Retail ~$${m.avg_monthly_cost_retail || '?'}/mo, Medicare ~$${m.avg_monthly_cost_medicare || '?'}/mo.\n`;
     });
   }
-
-  const devices = DB.getAll('devices');
+ 
+  const providers = DB.search('providers', q, ['name', 'specialty', 'clinic_name', 'plans_accepted', 'languages']);
+  if (providers.length > 0) {
+    context += '\nPROVIDERS:\n';
+    providers.slice(0,4).forEach(p => {
+      context += `• ${p.name} — ${p.specialty || 'N/A'} at ${p.clinic_name || 'N/A'}. ${p.city || 'El Paso'}, TX. Phone: ${p.phone || 'N/A'}. ${p.accepting_new_patients ? 'Accepting new patients.' : 'Not accepting.'} Languages: ${p.languages || 'N/A'}. Plans: ${p.plans_accepted || 'N/A'}.\n`;
+    });
+  }
+ 
+  const plans = DB.search('plans', q, ['carrier', 'plan_name', 'plan_type']);
+  const planResults = plans.length > 0 ? plans : (q.includes('plan') || q.includes('benefit') || q.includes('coverage') || q.includes('compare') ? DB.getAll('plans') : []);
+  if (planResults.length > 0) {
+    context += '\nPLANS:\n';
+    planResults.slice(0,6).forEach(p => {
+      context += `• ${p.carrier} — ${p.plan_name} (${p.plan_type || 'HMO'}): $${p.premium || 0}/mo premium, MOOP $${p.moop || 'N/A'}, Dental: ${p.dental_benefit || 'N/A'}, Vision: ${p.vision_benefit || 'N/A'}, Hearing: ${p.hearing_benefit || 'N/A'}, OTC: $${p.otc_allowance || 0}/qtr${p.star_rating ? ', ⭐' + p.star_rating : ''}.\n`;
+    });
+  }
+ 
+  const devices = DB.search('devices', q, ['name', 'category', 'what_it_does', 'who_needs_it']);
   if (devices.length > 0) {
-    context += '\n\n════ ALL DEVICES ════\n';
-    devices.forEach(d => {
-      context += `\n▸ ${d.name} | ${d.category??'N/A'} | ${d.what_it_does??''} | Medicare covered: ${d.covered_by_medicare?'Yes':'No'} | Notes: ${d.coverage_notes??'N/A'}`;
+    context += '\nDEVICES:\n';
+    devices.slice(0,3).forEach(d => {
+      context += `• ${d.name} (${d.category || 'Device'}): ${d.what_it_does || ''}. For: ${d.who_needs_it || 'N/A'}. ${d.coverage_notes || ''}.\n`;
     });
   }
-
-  const procedures = DB.getAll('procedures');
+ 
+  const procedures = DB.search('procedures', q, ['name', 'category', 'description', 'why_needed']);
   if (procedures.length > 0) {
-    context += '\n\n════ ALL PROCEDURES ════\n';
-    procedures.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.description??''} | Recovery: ${p.recovery_time??'N/A'} | Medicare copay: $${p.typical_copay_medicare??'?'}`;
+    context += '\nPROCEDURES:\n';
+    procedures.slice(0,3).forEach(p => {
+      context += `• ${p.name}: ${p.description || ''}. Recovery: ${p.recovery_time || 'N/A'}. Medicare copay: $${p.typical_copay_medicare || 'N/A'}.\n`;
     });
   }
-
-  const services = DB.getAll('services');
-  if (services.length > 0) {
-    context += '\n\n════ ALL SERVICES ════\n';
-    services.forEach(s => {
-      context += `\n▸ ${s.name} | ${s.type??'N/A'} | ${s.city??'El Paso'}, TX | Phone: ${s.phone??'N/A'}`;
-    });
-  }
-
+ 
   return context;
 }
-
-function buildSystemPrompt(userName, memory) {
-  const now = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-  const name = userName && userName !== 'friend' ? userName : 'there';
-  const memStr = memory && Object.keys(memory).length ? '\n\nWhat you remember about this person:\n' + JSON.stringify(memory, null, 2) : '';
-
-  return `You are MERIDIAN AI, a warm and knowledgeable Medicare assistant for El Paso, Texas. You help Medicare beneficiaries, caregivers, and insurance agents find the right plans, understand medications, find doctors, and navigate healthcare.
-
-Today is ${now}. You are talking with ${name}.${memStr}
-
-PERSONALITY: Warm and friendly like a trusted friend who knows healthcare. Use the user's name naturally. Show empathy. Be encouraging and clear, never condescending.
-
-CRITICAL — USE THE DATA BELOW: You have MERIDIAN's complete live database. ALWAYS reference specific plans, providers, and medications from the data below. Give exact numbers, exact plan names, exact copays. Never give generic answers when the specific data is right here.
-
-RESPONSE STYLE: Conversational, short paragraphs or bullets, specific numbers, always offer a helpful follow-up. Never give medical advice — always say talk to your doctor for medical decisions.
-
-MEMORY: When user shares name, conditions, meds, or preferences, end response with: <memory>{"key": "value"}</memory>
-
-════════════════════════════
-MERIDIAN LIVE DATABASE — USE THIS IN YOUR ANSWERS:
-════════════════════════════
-${buildFullContext()}`;
+ 
+function buildCurrentPlanContext(currentPlan) {
+  if (!currentPlan) return '';
+  return `\nThe user currently has this plan open on their screen:
+${currentPlan.name || currentPlan.plan_name} by ${currentPlan.carrier} (${currentPlan.type || currentPlan.plan_type})
+Premium: $${currentPlan.premium || 0}/mo | MOOP: $${currentPlan.moop || 0} | Specialist: $${currentPlan.specialist || 'N/A'}
+PCP: $${currentPlan.pcp || 'N/A'} | ER: $${currentPlan.er || 'N/A'} | Dental: ${currentPlan.dental || currentPlan.dental_benefit || 'N/A'}
+Vision: ${currentPlan.vision || currentPlan.vision_benefit || 'N/A'} | Hearing: ${currentPlan.hearing || currentPlan.hearing_benefit || 'N/A'}
+OTC: ${currentPlan.otc || currentPlan.otc_allowance || 'N/A'} | Food: ${currentPlan.food || 'N/A'} | Transport: ${currentPlan.transport || currentPlan.transportation || 'N/A'}
+Giveback: ${currentPlan.giveback > 0 ? '$' + currentPlan.giveback + '/mo' : 'None'} | Gym: ${currentPlan.gym || 'N/A'} | PERS: ${currentPlan.pers || 'N/A'}
+When the user says "this plan" or "it" they mean this one.`;
 }
-
+ 
+function buildSystemPrompt(userName, memory, dbContext, currentPlanContext) {
+  const now = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const name = userName && userName !== 'friend' ? userName : null;
+  const memStr = memory && Object.keys(memory).length
+    ? '\nWhat you know about this person: ' + JSON.stringify(memory) : '';
+ 
+  return `You are MERIDIAN, an AI built into a Medicare platform for El Paso, Texas. Today is ${now}.${name ? ' The person you\'re talking to is ' + name + '.' : ''}${memStr}${currentPlanContext ? '\n' + currentPlanContext : ''}${dbContext ? '\nData you have access to:\n' + dbContext : ''}
+ 
+You are genuinely intelligent, direct, and real. You don't sound like a chatbot. You don't open with scripted greetings or fake enthusiasm. When someone says hi, you just say hi back and ask what they need — like a real person would. You're not performing helpfulness, you actually are helpful.
+ 
+You know Medicare Advantage inside and out — HMO, PPO, D-SNP, C-SNP, drug tiers, formularies, prior auth, MOOP, giveback, OTC, PERS, SSBCI, all of it. You know El Paso carriers: Alignment, Devoted, Humana, UHC, Wellcare, HealthSpring/Cigna, Wellpoint/Amerigroup, BCBS. You know medications, procedures, devices, recovery times, costs.
+ 
+You talk like a human. Short sentences when it makes sense. You use the person's name naturally, not constantly. You remember what they tell you. If they're stressed or confused, you get that — you don't lecture them. You give real answers with real numbers, not vague corporate speak.
+ 
+You never say "Certainly!" or "Great question!" or "As an AI" or any of that. You just answer. If you don't know something, you say so straight up. You never give actual medical advice but you don't make a big dramatic disclaimer about it every single time either — you just say "talk to your doctor on that one" and move on.
+ 
+If someone asks you something completely off topic, you can engage with it briefly like a normal person would before steering back. You're not a robot with guardrails, you're just smart and helpful and real.
+ 
+When the user shares their name, conditions, meds, or preferences worth remembering, end your reply with:
+<memory>{"key": "value"}</memory>`;
+}
+ 
 router.post('/', async (req, res) => {
-  const { messages, userName, memory = {}, sessionId } = req.body;
+  const { messages, userName, memory = {}, sessionId, currentPlan } = req.body;
   if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages required' });
-
-  if (sessionId) { try { DB.upsertUser(sessionId, userName, memory); } catch(e) {} }
-
+ 
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+  const dbContext = searchDatabase(lastUserMsg);
+  const currentPlanContext = buildCurrentPlanContext(currentPlan);
+ 
+  if (sessionId) {
+    try { DB.upsertUser(sessionId, userName, memory); } catch(e) {}
+  }
+ 
   try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROK_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'grok-3-mini',
-        messages: [
-          { role: 'system', content: buildSystemPrompt(userName, memory) },
-          ...messages
-        ],
-        max_tokens: 1000,
-        temperature: 0.7
-      })
+    const body = JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 800,
+      temperature: 0.85,
+      messages: [
+        { role: 'system', content: buildSystemPrompt(userName, memory, dbContext, currentPlanContext) },
+        ...messages
+      ]
     });
-
-    const data = await response.json();
+ 
+    const data = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.groq.com',
+        path: '/openai/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Length': Buffer.byteLength(body)
+        }
+      };
+ 
+      const request = https.request(options, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch(e) { reject(new Error('Failed to parse response')); }
+        });
+      });
+ 
+      request.on('error', reject);
+      request.write(body);
+      request.end();
+    });
+ 
+    if (data.error) return res.status(500).json({ error: { message: data.error.message } });
     res.json(data);
+ 
   } catch(err) {
     res.status(500).json({ error: { message: err.message } });
   }
 });
-
-module.exports = router;
-const express = require('express');
-const router = express.Router();
-const fetch = require('node-fetch');
-const DB = require('../db');
-
-function buildFullContext() {
-  let context = '';
-
-  const plans = DB.getAll('plans');
-  if (plans.length > 0) {
-    context += '\n\n════ ALL MEDICARE PLANS ════\n';
-    plans.forEach(p => {
-      context += `\n▸ ${p.carrier} | ${p.plan_name} | Type: ${p.plan_type} | ID: ${p.plan_id||'N/A'}
-  Premium: $${p.premium??0}/mo | Giveback: $${p.giveback??0}/mo | MOOP: $${p.moop??'N/A'}
-  PCP: $${p.pcp??'N/A'} | Specialist: $${p.specialist??'N/A'} | Hospital: ${p.hospital??'N/A'}
-  ER: $${p.er??'N/A'} | Urgent Care: $${p.urgent_care??'N/A'} | Ambulance: $${p.ambulance??'N/A'}
-  Dental: ${p.dental_benefit??'N/A'} | Vision: ${p.vision_benefit??'N/A'} | Hearing: ${p.hearing_benefit??'N/A'}
-  OTC: $${p.otc_allowance??0}/mo | Food/Utilities: ${p.food_utilities??'N/A'} | Transportation: ${p.transportation??'N/A'}
-  Gym: ${p.gym??'N/A'} | PERS: ${p.pers??'N/A'} | Rx: ${p.rx??'N/A'} | Rx Deductible: ${p.rx_deductible??'N/A'}`;
-    });
-  }
-
-  const providers = DB.getAll('providers');
-  if (providers.length > 0) {
-    context += '\n\n════ ALL PROVIDERS ════\n';
-    providers.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.specialty??'N/A'} | ${p.clinic_name??'N/A'} | ${p.address??''} ${p.city??'El Paso'}, TX | Phone: ${p.phone??'N/A'} | Accepting: ${p.accepting_new_patients?'Yes':'No'} | Languages: ${p.languages??'N/A'} | Plans: ${p.plans_accepted??'N/A'}`;
-    });
-  }
-
-  const meds = DB.getAll('medications');
-  if (meds.length > 0) {
-    context += '\n\n════ ALL MEDICATIONS ════\n';
-    meds.forEach(m => {
-      context += `\n▸ ${m.name}${m.generic_name?' ('+m.generic_name+')':''} | Class: ${m.drug_class??'N/A'} | Treats: ${m.what_it_treats??'N/A'} | Tier: ${m.tier_typical??'N/A'} | Retail: $${m.avg_monthly_cost_retail??'?'}/mo | Medicare: $${m.avg_monthly_cost_medicare??'?'}/mo`;
-    });
-  }
-
-  const devices = DB.getAll('devices');
-  if (devices.length > 0) {
-    context += '\n\n════ ALL DEVICES ════\n';
-    devices.forEach(d => {
-      context += `\n▸ ${d.name} | ${d.category??'N/A'} | ${d.what_it_does??''} | Medicare covered: ${d.covered_by_medicare?'Yes':'No'} | Notes: ${d.coverage_notes??'N/A'}`;
-    });
-  }
-
-  const procedures = DB.getAll('procedures');
-  if (procedures.length > 0) {
-    context += '\n\n════ ALL PROCEDURES ════\n';
-    procedures.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.description??''} | Recovery: ${p.recovery_time??'N/A'} | Medicare copay: $${p.typical_copay_medicare??'?'}`;
-    });
-  }
-
-  const services = DB.getAll('services');
-  if (services.length > 0) {
-    context += '\n\n════ ALL SERVICES ════\n';
-    services.forEach(s => {
-      context += `\n▸ ${s.name} | ${s.type??'N/A'} | ${s.city??'El Paso'}, TX | Phone: ${s.phone??'N/A'}`;
-    });
-  }
-
-  return context;
-}
-
-function buildSystemPrompt(userName, memory) {
-  const now = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-  const name = userName && userName !== 'friend' ? userName : 'there';
-  const memStr = memory && Object.keys(memory).length ? '\n\nWhat you remember about this person:\n' + JSON.stringify(memory, null, 2) : '';
-
-  return `You are MERIDIAN AI, a warm and knowledgeable Medicare assistant for El Paso, Texas. You help Medicare beneficiaries, caregivers, and insurance agents find the right plans, understand medications, find doctors, and navigate healthcare.
-
-Today is ${now}. You are talking with ${name}.${memStr}
-
-PERSONALITY: Warm and friendly like a trusted friend who knows healthcare. Use the user's name naturally. Show empathy. Be encouraging and clear, never condescending.
-
-CRITICAL — USE THE DATA BELOW: You have MERIDIAN's complete live database. ALWAYS reference specific plans, providers, and medications from the data below. Give exact numbers, exact plan names, exact copays. Never give generic answers when the specific data is right here.
-
-RESPONSE STYLE: Conversational, short paragraphs or bullets, specific numbers, always offer a helpful follow-up. Never give medical advice — always say talk to your doctor for medical decisions.
-
-MEMORY: When user shares name, conditions, meds, or preferences, end response with: <memory>{"key": "value"}</memory>
-
-════════════════════════════
-MERIDIAN LIVE DATABASE — USE THIS IN YOUR ANSWERS:
-════════════════════════════
-${buildFullContext()}`;
-}
-
-router.post('/', async (req, res) => {
-  const { messages, userName, memory = {}, sessionId } = req.body;
-  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages required' });
-
-  if (sessionId) { try { DB.upsertUser(sessionId, userName, memory); } catch(e) {} }
-
-  try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROK_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'grok-3-mini',
-        messages: [
-          { role: 'system', content: buildSystemPrompt(userName, memory) },
-          ...messages
-        ],
-        max_tokens: 1000,
-        temperature: 0.7
-      })
-    });
-
-    const data = await response.json();
-    res.json(data);
-  } catch(err) {
-    res.status(500).json({ error: { message: err.message } });
-  }
-});
-
-module.exports = router;
-const express = require('express');
-const router = express.Router();
-const fetch = require('node-fetch');
-const DB = require('../db');
-
-function buildFullContext() {
-  let context = '';
-
-  const plans = DB.getAll('plans');
-  if (plans.length > 0) {
-    context += '\n\n════ ALL MEDICARE PLANS ════\n';
-    plans.forEach(p => {
-      context += `\n▸ ${p.carrier} | ${p.plan_name} | Type: ${p.plan_type} | ID: ${p.plan_id||'N/A'}
-  Premium: $${p.premium??0}/mo | Giveback: $${p.giveback??0}/mo | MOOP: $${p.moop??'N/A'}
-  PCP: $${p.pcp??'N/A'} | Specialist: $${p.specialist??'N/A'} | Hospital: ${p.hospital??'N/A'}
-  ER: $${p.er??'N/A'} | Urgent Care: $${p.urgent_care??'N/A'} | Ambulance: $${p.ambulance??'N/A'}
-  Dental: ${p.dental_benefit??'N/A'} | Vision: ${p.vision_benefit??'N/A'} | Hearing: ${p.hearing_benefit??'N/A'}
-  OTC: $${p.otc_allowance??0}/mo | Food/Utilities: ${p.food_utilities??'N/A'} | Transportation: ${p.transportation??'N/A'}
-  Gym: ${p.gym??'N/A'} | PERS: ${p.pers??'N/A'} | Rx: ${p.rx??'N/A'} | Rx Deductible: ${p.rx_deductible??'N/A'}`;
-    });
-  }
-
-  const providers = DB.getAll('providers');
-  if (providers.length > 0) {
-    context += '\n\n════ ALL PROVIDERS ════\n';
-    providers.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.specialty??'N/A'} | ${p.clinic_name??'N/A'} | ${p.address??''} ${p.city??'El Paso'}, TX | Phone: ${p.phone??'N/A'} | Accepting: ${p.accepting_new_patients?'Yes':'No'} | Languages: ${p.languages??'N/A'} | Plans: ${p.plans_accepted??'N/A'}`;
-    });
-  }
-
-  const meds = DB.getAll('medications');
-  if (meds.length > 0) {
-    context += '\n\n════ ALL MEDICATIONS ════\n';
-    meds.forEach(m => {
-      context += `\n▸ ${m.name}${m.generic_name?' ('+m.generic_name+')':''} | Class: ${m.drug_class??'N/A'} | Treats: ${m.what_it_treats??'N/A'} | Tier: ${m.tier_typical??'N/A'} | Retail: $${m.avg_monthly_cost_retail??'?'}/mo | Medicare: $${m.avg_monthly_cost_medicare??'?'}/mo`;
-    });
-  }
-
-  const devices = DB.getAll('devices');
-  if (devices.length > 0) {
-    context += '\n\n════ ALL DEVICES ════\n';
-    devices.forEach(d => {
-      context += `\n▸ ${d.name} | ${d.category??'N/A'} | ${d.what_it_does??''} | Medicare covered: ${d.covered_by_medicare?'Yes':'No'} | Notes: ${d.coverage_notes??'N/A'}`;
-    });
-  }
-
-  const procedures = DB.getAll('procedures');
-  if (procedures.length > 0) {
-    context += '\n\n════ ALL PROCEDURES ════\n';
-    procedures.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.description??''} | Recovery: ${p.recovery_time??'N/A'} | Medicare copay: $${p.typical_copay_medicare??'?'}`;
-    });
-  }
-
-  const services = DB.getAll('services');
-  if (services.length > 0) {
-    context += '\n\n════ ALL SERVICES ════\n';
-    services.forEach(s => {
-      context += `\n▸ ${s.name} | ${s.type??'N/A'} | ${s.city??'El Paso'}, TX | Phone: ${s.phone??'N/A'}`;
-    });
-  }
-
-  return context;
-}
-
-function buildSystemPrompt(userName, memory) {
-  const now = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-  const name = userName && userName !== 'friend' ? userName : 'there';
-  const memStr = memory && Object.keys(memory).length ? '\n\nWhat you remember about this person:\n' + JSON.stringify(memory, null, 2) : '';
-
-  return `You are MERIDIAN AI, a warm and knowledgeable Medicare assistant for El Paso, Texas. You help Medicare beneficiaries, caregivers, and insurance agents find the right plans, understand medications, find doctors, and navigate healthcare.
-
-Today is ${now}. You are talking with ${name}.${memStr}
-
-PERSONALITY: Warm and friendly like a trusted friend who knows healthcare. Use the user's name naturally. Show empathy. Be encouraging and clear, never condescending.
-
-CRITICAL — USE THE DATA BELOW: You have MERIDIAN's complete live database. ALWAYS reference specific plans, providers, and medications from the data below. Give exact numbers, exact plan names, exact copays. Never give generic answers when the specific data is right here.
-
-RESPONSE STYLE: Conversational, short paragraphs or bullets, specific numbers, always offer a helpful follow-up. Never give medical advice — always say talk to your doctor for medical decisions.
-
-MEMORY: When user shares name, conditions, meds, or preferences, end response with: <memory>{"key": "value"}</memory>
-
-════════════════════════════
-MERIDIAN LIVE DATABASE — USE THIS IN YOUR ANSWERS:
-════════════════════════════
-${buildFullContext()}`;
-}
-
-router.post('/', async (req, res) => {
-  const { messages, userName, memory = {}, sessionId } = req.body;
-  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages required' });
-
-  if (sessionId) { try { DB.upsertUser(sessionId, userName, memory); } catch(e) {} }
-
-  try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROK_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'grok-3-mini',
-        messages: [
-          { role: 'system', content: buildSystemPrompt(userName, memory) },
-          ...messages
-        ],
-        max_tokens: 1000,
-        temperature: 0.7
-      })
-    });
-
-    const data = await response.json();
-    res.json(data);
-  } catch(err) {
-    res.status(500).json({ error: { message: err.message } });
-  }
-});
-
-module.exports = router;
-const express = require('express');
-const router = express.Router();
-const fetch = require('node-fetch');
-const DB = require('../db');
-
-function buildFullContext() {
-  let context = '';
-
-  const plans = DB.getAll('plans');
-  if (plans.length > 0) {
-    context += '\n\n════ ALL MEDICARE PLANS ════\n';
-    plans.forEach(p => {
-      context += `\n▸ ${p.carrier} | ${p.plan_name} | Type: ${p.plan_type} | ID: ${p.plan_id||'N/A'}
-  Premium: $${p.premium??0}/mo | Giveback: $${p.giveback??0}/mo | MOOP: $${p.moop??'N/A'}
-  PCP: $${p.pcp??'N/A'} | Specialist: $${p.specialist??'N/A'} | Hospital: ${p.hospital??'N/A'}
-  ER: $${p.er??'N/A'} | Urgent Care: $${p.urgent_care??'N/A'} | Ambulance: $${p.ambulance??'N/A'}
-  Dental: ${p.dental_benefit??'N/A'} | Vision: ${p.vision_benefit??'N/A'} | Hearing: ${p.hearing_benefit??'N/A'}
-  OTC: $${p.otc_allowance??0}/mo | Food/Utilities: ${p.food_utilities??'N/A'} | Transportation: ${p.transportation??'N/A'}
-  Gym: ${p.gym??'N/A'} | PERS: ${p.pers??'N/A'} | Rx: ${p.rx??'N/A'} | Rx Deductible: ${p.rx_deductible??'N/A'}`;
-    });
-  }
-
-  const providers = DB.getAll('providers');
-  if (providers.length > 0) {
-    context += '\n\n════ ALL PROVIDERS ════\n';
-    providers.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.specialty??'N/A'} | ${p.clinic_name??'N/A'} | ${p.address??''} ${p.city??'El Paso'}, TX | Phone: ${p.phone??'N/A'} | Accepting: ${p.accepting_new_patients?'Yes':'No'} | Languages: ${p.languages??'N/A'} | Plans: ${p.plans_accepted??'N/A'}`;
-    });
-  }
-
-  const meds = DB.getAll('medications');
-  if (meds.length > 0) {
-    context += '\n\n════ ALL MEDICATIONS ════\n';
-    meds.forEach(m => {
-      context += `\n▸ ${m.name}${m.generic_name?' ('+m.generic_name+')':''} | Class: ${m.drug_class??'N/A'} | Treats: ${m.what_it_treats??'N/A'} | Tier: ${m.tier_typical??'N/A'} | Retail: $${m.avg_monthly_cost_retail??'?'}/mo | Medicare: $${m.avg_monthly_cost_medicare??'?'}/mo`;
-    });
-  }
-
-  const devices = DB.getAll('devices');
-  if (devices.length > 0) {
-    context += '\n\n════ ALL DEVICES ════\n';
-    devices.forEach(d => {
-      context += `\n▸ ${d.name} | ${d.category??'N/A'} | ${d.what_it_does??''} | Medicare covered: ${d.covered_by_medicare?'Yes':'No'} | Notes: ${d.coverage_notes??'N/A'}`;
-    });
-  }
-
-  const procedures = DB.getAll('procedures');
-  if (procedures.length > 0) {
-    context += '\n\n════ ALL PROCEDURES ════\n';
-    procedures.forEach(p => {
-      context += `\n▸ ${p.name} | ${p.description??''} | Recovery: ${p.recovery_time??'N/A'} | Medicare copay: $${p.typical_copay_medicare??'?'}`;
-    });
-  }
-
-  const services = DB.getAll('services');
-  if (services.length > 0) {
-    context += '\n\n════ ALL SERVICES ════\n';
-    services.forEach(s => {
-      context += `\n▸ ${s.name} | ${s.type??'N/A'} | ${s.city??'El Paso'}, TX | Phone: ${s.phone??'N/A'}`;
-    });
-  }
-
-  return context;
-}
-
-function buildSystemPrompt(userName, memory) {
-  const now = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-  const name = userName && userName !== 'friend' ? userName : 'there';
-  const memStr = memory && Object.keys(memory).length ? '\n\nWhat you remember about this person:\n' + JSON.stringify(memory, null, 2) : '';
-
-  return `You are MERIDIAN AI, a warm and knowledgeable Medicare assistant for El Paso, Texas. You help Medicare beneficiaries, caregivers, and insurance agents find the right plans, understand medications, find doctors, and navigate healthcare.
-
-Today is ${now}. You are talking with ${name}.${memStr}
-
-PERSONALITY: Warm and friendly like a trusted friend who knows healthcare. Use the user's name naturally. Show empathy. Be encouraging and clear, never condescending.
-
-CRITICAL — USE THE DATA BELOW: You have MERIDIAN's complete live database. ALWAYS reference specific plans, providers, and medications from the data below. Give exact numbers, exact plan names, exact copays. Never give generic answers when the specific data is right here.
-
-RESPONSE STYLE: Conversational, short paragraphs or bullets, specific numbers, always offer a helpful follow-up. Never give medical advice — always say talk to your doctor for medical decisions.
-
-MEMORY: When user shares name, conditions, meds, or preferences, end response with: <memory>{"key": "value"}</memory>
-
-════════════════════════════
-MERIDIAN LIVE DATABASE — USE THIS IN YOUR ANSWERS:
-════════════════════════════
-${buildFullContext()}`;
-}
-
-router.post('/', async (req, res) => {
-  const { messages, userName, memory = {}, sessionId } = req.body;
-  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages required' });
-
-  if (sessionId) { try { DB.upsertUser(sessionId, userName, memory); } catch(e) {} }
-
-  try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROK_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'grok-3-mini',
-        messages: [
-          { role: 'system', content: buildSystemPrompt(userName, memory) },
-          ...messages
-        ],
-        max_tokens: 1000,
-        temperature: 0.7
-      })
-    });
-
-    const data = await response.json();
-    res.json(data);
-  } catch(err) {
-    res.status(500).json({ error: { message: err.message } });
-  }
-});
-
+ 
 module.exports = router;
