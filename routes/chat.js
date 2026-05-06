@@ -1,58 +1,66 @@
 const express = require('express');
 const router = express.Router();
 const https = require('https');
-const DB = require('../db');
- 
+const { pool, getAll, search, upsertUser } = require('../db');
+
 const GROQ_API_KEY = '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';
- 
-function searchDatabase(userMessage) {
+
+async function searchDatabase(userMessage) {
   const q = userMessage.toLowerCase();
   let context = '';
- 
-  const meds = DB.search('medications', q, ['name', 'generic_name', 'brand_name', 'what_it_treats', 'drug_class']);
-  if (meds.length > 0) {
-    context += '\nMEDICATIONS:\n';
-    meds.slice(0,4).forEach(m => {
-      context += `• ${m.name}${m.generic_name ? ' (' + m.generic_name + ')' : ''}: treats ${m.what_it_treats || 'N/A'}. Tier ${m.tier_typical || 'N/A'}. Retail ~$${m.avg_monthly_cost_retail || '?'}/mo, Medicare ~$${m.avg_monthly_cost_medicare || '?'}/mo.\n`;
-    });
+
+  try {
+    const meds = await search('medications', q, ['name', 'generic_name', 'what_it_treats', 'drug_class']);
+    if (meds && meds.length > 0) {
+      context += '\nMEDICATIONS:\n';
+      meds.slice(0,4).forEach(m => {
+        context += `• ${m.name}${m.generic_name ? ' (' + m.generic_name + ')' : ''}: treats ${m.what_it_treats || 'N/A'}. Tier ${m.tier_typical || 'N/A'}. Retail ~$${m.avg_monthly_cost_retail || '?'}/mo, Medicare ~$${m.avg_monthly_cost_medicare || '?'}/mo.\n`;
+      });
+    }
+
+    const providers = await search('providers', q, ['name', 'specialty', 'clinic_name', 'plans_accepted', 'languages']);
+    if (providers && providers.length > 0) {
+      context += '\nPROVIDERS:\n';
+      providers.slice(0,4).forEach(p => {
+        context += `• ${p.name} — ${p.specialty || 'N/A'} at ${p.clinic_name || 'N/A'}. ${p.city || 'El Paso'}, TX. Phone: ${p.phone || 'N/A'}. ${p.accepting_new_patients ? 'Accepting new patients.' : 'Not accepting.'} Languages: ${p.languages || 'N/A'}. Plans: ${p.plans_accepted || 'N/A'}.\n`;
+      });
+    }
+
+    let planResults = await search('plans', q, ['carrier', 'plan_name', 'plan_type']);
+    if (!planResults || planResults.length === 0) {
+      if (q.includes('plan') || q.includes('benefit') || q.includes('coverage') || q.includes('compare')) {
+        planResults = await getAll('plans');
+      }
+    }
+    if (planResults && planResults.length > 0) {
+      context += '\nPLANS:\n';
+      planResults.slice(0,6).forEach(p => {
+        context += `• ${p.carrier} — ${p.plan_name} (${p.plan_type || 'HMO'}): $${p.premium || 0}/mo premium, MOOP $${p.moop || 'N/A'}, Dental: ${p.dental_benefit || 'N/A'}, Vision: ${p.vision_benefit || 'N/A'}, Hearing: ${p.hearing_benefit || 'N/A'}, OTC: $${p.otc_allowance || 0}/qtr.\n`;
+      });
+    }
+
+    const devices = await search('devices', q, ['name', 'category', 'what_it_does', 'who_needs_it']);
+    if (devices && devices.length > 0) {
+      context += '\nDEVICES:\n';
+      devices.slice(0,3).forEach(d => {
+        context += `• ${d.name} (${d.category || 'Device'}): ${d.what_it_does || ''}. For: ${d.who_needs_it || 'N/A'}. ${d.coverage_notes || ''}.\n`;
+      });
+    }
+
+    const procedures = await search('procedures', q, ['name', 'category', 'description', 'why_needed']);
+    if (procedures && procedures.length > 0) {
+      context += '\nPROCEDURES:\n';
+      procedures.slice(0,3).forEach(p => {
+        context += `• ${p.name}: ${p.description || ''}. Recovery: ${p.recovery_time || 'N/A'}. Medicare copay: $${p.typical_copay_medicare || 'N/A'}.\n`;
+      });
+    }
+  } catch (err) {
+    console.error('Database search error:', err);
   }
- 
-  const providers = DB.search('providers', q, ['name', 'specialty', 'clinic_name', 'plans_accepted', 'languages']);
-  if (providers.length > 0) {
-    context += '\nPROVIDERS:\n';
-    providers.slice(0,4).forEach(p => {
-      context += `• ${p.name} — ${p.specialty || 'N/A'} at ${p.clinic_name || 'N/A'}. ${p.city || 'El Paso'}, TX. Phone: ${p.phone || 'N/A'}. ${p.accepting_new_patients ? 'Accepting new patients.' : 'Not accepting.'} Languages: ${p.languages || 'N/A'}. Plans: ${p.plans_accepted || 'N/A'}.\n`;
-    });
-  }
- 
-  const plans = DB.search('plans', q, ['carrier', 'plan_name', 'plan_type']);
-  const planResults = plans.length > 0 ? plans : (q.includes('plan') || q.includes('benefit') || q.includes('coverage') || q.includes('compare') ? DB.getAll('plans') : []);
-  if (planResults.length > 0) {
-    context += '\nPLANS:\n';
-    planResults.slice(0,6).forEach(p => {
-      context += `• ${p.carrier} — ${p.plan_name} (${p.plan_type || 'HMO'}): $${p.premium || 0}/mo premium, MOOP $${p.moop || 'N/A'}, Dental: ${p.dental_benefit || 'N/A'}, Vision: ${p.vision_benefit || 'N/A'}, Hearing: ${p.hearing_benefit || 'N/A'}, OTC: $${p.otc_allowance || 0}/qtr${p.star_rating ? ', ⭐' + p.star_rating : ''}.\n`;
-    });
-  }
- 
-  const devices = DB.search('devices', q, ['name', 'category', 'what_it_does', 'who_needs_it']);
-  if (devices.length > 0) {
-    context += '\nDEVICES:\n';
-    devices.slice(0,3).forEach(d => {
-      context += `• ${d.name} (${d.category || 'Device'}): ${d.what_it_does || ''}. For: ${d.who_needs_it || 'N/A'}. ${d.coverage_notes || ''}.\n`;
-    });
-  }
- 
-  const procedures = DB.search('procedures', q, ['name', 'category', 'description', 'why_needed']);
-  if (procedures.length > 0) {
-    context += '\nPROCEDURES:\n';
-    procedures.slice(0,3).forEach(p => {
-      context += `• ${p.name}: ${p.description || ''}. Recovery: ${p.recovery_time || 'N/A'}. Medicare copay: $${p.typical_copay_medicare || 'N/A'}.\n`;
-    });
-  }
- 
+
   return context;
 }
- 
+
 function buildCurrentPlanContext(currentPlan) {
   if (!currentPlan) return '';
   return `\nThe user currently has this plan open on their screen:
@@ -64,7 +72,7 @@ OTC: ${currentPlan.otc || currentPlan.otc_allowance || 'N/A'} | Food: ${currentP
 Giveback: ${currentPlan.giveback > 0 ? '$' + currentPlan.giveback + '/mo' : 'None'} | Gym: ${currentPlan.gym || 'N/A'} | PERS: ${currentPlan.pers || 'N/A'}
 When the user says "this plan" or "it" they mean this one.`;
 }
- 
+
 function buildSystemPrompt(userName, memory, dbContext, currentPlanContext) {
   const now = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const name = userName && userName !== 'friend' ? userName : null;
@@ -86,20 +94,22 @@ If someone asks you something completely off topic, you can engage with it brief
 When the user shares their name, conditions, meds, or preferences worth remembering, end your reply with:
 <memory>{"key": "value"}</memory>`;
 }
- 
+
 router.post('/', async (req, res) => {
   const { messages, userName, memory = {}, sessionId, currentPlan } = req.body;
-  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages required' });
- 
-  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-  const dbContext = searchDatabase(lastUserMsg);
-  const currentPlanContext = buildCurrentPlanContext(currentPlan);
- 
-  if (sessionId) {
-    try { DB.upsertUser(sessionId, userName, memory); } catch(e) {}
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages required' });
   }
- 
+
   try {
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+    const dbContext = await searchDatabase(lastUserMsg);
+    const currentPlanContext = buildCurrentPlanContext(currentPlan);
+ 
+    if (sessionId) {
+      try { await upsertUser(sessionId, userName, memory); } catch(e) { console.error('Upsert error:', e); }
+    }
+ 
     const body = JSON.stringify({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 800,
@@ -132,6 +142,22 @@ router.post('/', async (req, res) => {
       });
  
       request.on('error', reject);
+      request.write(body);
+      request.end();
+    });
+ 
+    if (data.error) {
+      return res.status(500).json({ error: { message: data.error.message } });
+    }
+    res.json(data);
+ 
+  } catch(err) {
+    console.error('Chat error:', err);
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+ 
+module.exports = router;on('error', reject);
       request.write(body);
       request.end();
     });
