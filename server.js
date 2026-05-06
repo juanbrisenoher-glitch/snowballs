@@ -18,19 +18,15 @@ app.use('/api/data', require('./routes/data'));
 app.use('/api/import', require('./routes/import'));
 
 // ── Health check ───────────────────────────────────
-app.get('/api/health', async (req, res) => {
-  try {
-    res.json({ 
-      status: 'ok', 
-      service: 'MERIDIAN Backend', 
-      timestamp: new Date().toISOString() 
-    });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
-  }
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    service: 'MERIDIAN Backend', 
+    timestamp: new Date().toISOString() 
+  });
 });
 
-// ✅ ADD THIS ROOT ROUTE HANDLER
+// ── Root route ───────────────────────────────────
 app.get('/', (req, res) => {
   res.json({ message: 'MERIDIAN Backend API is running', status: 'ok' });
 });
@@ -40,6 +36,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ── Start server ───────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ MERIDIAN Backend running on port ${PORT}`);
 });
