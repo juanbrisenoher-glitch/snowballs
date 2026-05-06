@@ -30,6 +30,11 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// ✅ ADD THIS ROOT ROUTE HANDLER
+app.get('/', (req, res) => {
+  res.json({ message: 'MERIDIAN Backend API is running', status: 'ok' });
+});
+
 // ── Catch all → serve index.html ───────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
