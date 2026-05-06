@@ -9,29 +9,29 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 
-// ── Serve frontend ─────────────────────────────────
+// Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Routes ─────────────────────────────────────────
+// Routes
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/data', require('./routes/data'));
 app.use('/api/import', require('./routes/import'));
 
-// ── Health check ───────────────────────────────────
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    service: 'MERIDIAN Backend', 
-    timestamp: new Date().toISOString() 
-  });
+  res.json({ status: 'ok', service: 'MERIDIAN Backend', timestamp: new Date().toISOString() });
 });
 
-// ── Root route ───────────────────────────────────
+// Root route
 app.get('/', (req, res) => {
   res.json({ message: 'MERIDIAN Backend API is running', status: 'ok' });
 });
 
-// ── Start server ───────────────────────────────────
+// Catch all
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ MERIDIAN Backend running on port ${PORT}`);
 });
