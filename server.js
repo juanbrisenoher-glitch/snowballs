@@ -12,10 +12,10 @@ app.use(express.json({ limit: '50mb' }));
 // Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Routes
+// Routes - COMMENT OUT the broken ones for now
 app.use('/api/chat', require('./routes/chat'));
-app.use('/api/data', require('./routes/data'));
-app.use('/api/import', require('./routes/import'));
+// app.use('/api/data', require('./routes/data'));  // Temporarily disabled
+// app.use('/api/import', require('./routes/import'));  // Temporarily disabled
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -24,11 +24,6 @@ app.get('/api/health', (req, res) => {
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ message: 'MERIDIAN Backend API is running', status: 'ok' });
-});
-
-// Catch all
-app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
