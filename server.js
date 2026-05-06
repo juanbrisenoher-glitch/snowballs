@@ -10,12 +10,12 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 
 // ── Serve frontend ─────────────────────────────────
-//app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Routes ─────────────────────────────────────────
-//app.use('/api/chat', require('./routes/chat'));
-//app.use('/api/data', require('./routes/data'));
-//app.use('/api/import', require('./routes/import'));
+app.use('/api/chat', require('./routes/chat'));
+app.use('/api/data', require('./routes/data'));
+app.use('/api/import', require('./routes/import'));
 
 // ── Health check ───────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -27,13 +27,8 @@ app.get('/api/health', (req, res) => {
 });
 
 // ── Root route ───────────────────────────────────
-//app.get('/', (req, res) => {
- // res.json({ message: 'MERIDIAN Backend API is running', status: 'ok' });
-});
-
-// ── Catch all → serve index.html ───────────────────
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get('/', (req, res) => {
+  res.json({ message: 'MERIDIAN Backend API is running', status: 'ok' });
 });
 
 // ── Start server ───────────────────────────────────
