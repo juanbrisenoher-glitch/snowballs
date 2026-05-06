@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,9 +18,16 @@ app.use('/api/data', require('./routes/data'));
 app.use('/api/import', require('./routes/import'));
 
 // ── Health check ───────────────────────────────────
-app.get('/api/health', (req, res) => {
-  const DB = require('./db');
-  res.json({ status: 'ok', service: 'MERIDIAN Backend', stats: DB.stats(), timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    res.json({ 
+      status: 'ok', 
+      service: 'MERIDIAN Backend', 
+      timestamp: new Date().toISOString() 
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
 });
 
 // ── Catch all → serve index.html ───────────────────
