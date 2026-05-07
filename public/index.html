@@ -445,14 +445,40 @@
   <div class="main-container">
     <!-- LEFT: Plan Explorer -->
     <div class="explorer-panel">
-      <!-- DRAG & DROP UPLOAD AREA -->
-      <div class="upload-area" id="uploadArea">
-        <i class="fas fa-cloud-upload-alt" style="font-size: 28px; color: var(--accent); margin-bottom: 8px;"></i>
-        <p style="margin: 0; font-size: 13px; font-weight: 500;">Drag & drop PDFs here</p>
-        <p style="margin: 4px 0 0 0; font-size: 11px; color: var(--text-secondary);">Benefits, formularies, or provider directories</p>
-        <div id="uploadProgress" style="display: none; margin-top: 12px;"></div>
-        <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
-      </div>
+      <!-- DUAL UPLOAD AREA - PDFs OR URLs -->
+<div style="margin: 16px;">
+  <!-- Tab buttons -->
+  <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <button id="uploadFileTab" class="upload-tab active" onclick="switchUploadTab('file')" style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: var(--accent); color: white;">📁 Upload PDF Files</button>
+    <button id="uploadUrlTab" class="upload-tab" onclick="switchUploadTab('url')" style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: var(--bg-card); color: var(--text-primary);">🔗 Import from URL</button>
+  </div>
+  
+  <!-- File Upload Area -->
+  <div id="fileUploadArea" class="upload-area" style="padding: 20px; border: 2px dashed var(--border); border-radius: 16px; text-align: center; cursor: pointer; background: var(--bg-card);">
+    <i class="fas fa-cloud-upload-alt" style="font-size: 28px; color: var(--accent); margin-bottom: 8px;"></i>
+    <p style="margin: 0; font-size: 13px; font-weight: 500;">Drag & drop PDFs here or click to upload</p>
+    <p style="margin: 4px 0 0 0; font-size: 11px; color: var(--text-secondary);">Benefits, formularies, or provider directories</p>
+    <div id="uploadProgress" style="display: none; margin-top: 12px;"></div>
+    <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
+  </div>
+  
+  <!-- URL Import Area (hidden by default) -->
+  <div id="urlUploadArea" style="display: none; padding: 20px; border: 2px dashed var(--border); border-radius: 16px; background: var(--bg-card);">
+    <i class="fas fa-link" style="font-size: 28px; color: var(--accent); margin-bottom: 8px; display: block; text-align: center;"></i>
+    <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 500; text-align: center;">Import PDF from URL</p>
+    <div style="display: flex; gap: 8px;">
+      <input type="text" id="urlInput" class="search-input" placeholder="https://.../plan-benefits.pdf" style="flex: 1;">
+      <button id="importUrlBtn" class="send-btn" onclick="importFromUrl()" style="padding: 10px 20px;">Import</button>
+    </div>
+    <div id="urlProgress" style="display: none; margin-top: 12px;"></div>
+  </div>
+  
+  <!-- Batch URL Import -->
+  <div id="batchUrlArea" style="margin-top: 12px; display: none;">
+    <textarea id="batchUrls" rows="3" class="search-input" placeholder="Paste multiple URLs (one per line)&#10;https://.../plan1.pdf&#10;https://.../plan2.pdf"></textarea>
+    <button id="batchImportBtn" class="send-btn" onclick="batchImportFromUrls()" style="margin-top: 8px; width: 100%;">📦 Import All URLs</button>
+  </div>
+</div>
       
       <div class="filters">
         <div class="filter-title"><i class="fas fa-sliders-h"></i> Filter Plans</div>
