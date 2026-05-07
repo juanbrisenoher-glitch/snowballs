@@ -4,6 +4,7 @@ const multer = require('multer');
 const { Pool } = require('pg');
 const { Groq } = require('groq-sdk');
 const pdfParse = require('pdf-parse');
+const https = require('https');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -54,7 +55,7 @@ async function processPDF(pdfBuffer, filename) {
       "moop": number (Maximum Out-of-Pocket in dollars),
       "specialist": number (specialist copay in dollars),
       "pcp": number (primary care copay in dollars),
-      "er": number or string (ER copay),
+      "er": "string or number (ER copay)",
       "dental_benefit": "string (describe dental coverage)",
       "vision_benefit": "string (describe vision coverage)",
       "hearing_benefit": "string (describe hearing coverage)",
@@ -201,7 +202,43 @@ router.post('/', upload.array('pdfs', 20), async (req, res) => {
     console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+}
+
+// POST /api/upload/url - Import PDF from URL
+router.post('/url', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'URL required' });
+    }
+    
+    console.log(`📥 Importing from URL: ${url}`);
+    
+    // Download the PDF from the URL
+    const pdfData = await new Promise((resolve, reject) => {
+      https.get(url, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`HTTP ${response.statusCode}`));
+          return;
+        }
+        const chunks = [];
+        response.on('data', chunk => chunks.push(chunk));
+        response.on('end', () => resolve(Buffer.concat(chunks)));
+      }).on('error', reject);
+    });
+    
+    // Extract filename from URL
+    const filename = url.split('/').pop() || 'document.pdf';
+    
+    // Process the PDF
+    const result = await processPDF(pdfData, filename);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('URL import error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
 
 // GET /api/upload/status - Get current database counts
 router.get('/status', async (req, res) => {
