@@ -1,3 +1,5 @@
+<!-- This is the complete file - replace your entire index.html -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
+    /* ========== ALL CSS GOES HERE ========== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
@@ -26,8 +29,8 @@
       --accent-dark: #2563eb;
       --accent-glow: rgba(59,130,246,0.2);
       --header-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-      --shadow-hover: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      --shadow-hover: 0 20px 25px -5px rgba(0,0,0,0.1);
     }
     
     /* Dark Mode */
@@ -42,8 +45,6 @@
       --accent-dark: #3b82f6;
       --accent-glow: rgba(96,165,250,0.15);
       --header-bg: linear-gradient(135deg, #0f0f1a 0%, #0a0a12 100%);
-      --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-      --shadow-hover: 0 20px 25px -5px rgba(0,0,0,0.4);
     }
     
     body {
@@ -54,7 +55,6 @@
     /* Header */
     .header {
       background: var(--header-bg);
-      backdrop-filter: blur(10px);
       padding: 16px 32px;
       border-bottom: 1px solid var(--border);
       position: sticky;
@@ -85,7 +85,6 @@
       margin-top: 2px;
     }
     
-    /* Theme Toggle */
     .theme-toggle {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -95,23 +94,6 @@
       display: flex;
       gap: 8px;
       transition: all 0.3s;
-    }
-    
-    .theme-toggle:hover {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-    
-    .theme-toggle i {
-      font-size: 16px;
-    }
-    
-    /* Main Layout */
-    .main-container {
-      display: flex;
-      height: calc(100vh - 72px);
-      max-width: 1600px;
-      margin: 0 auto;
     }
     
     /* Stats Bar */
@@ -133,6 +115,29 @@
     .stat i { color: var(--accent); font-size: 14px; }
     .stat-value { font-weight: 600; color: var(--text-primary); }
     .stat-label { color: var(--text-secondary); }
+    
+    /* Upload Area */
+    .upload-area {
+      margin: 16px;
+      padding: 20px;
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      text-align: center;
+      cursor: pointer;
+      background: var(--bg-card);
+      transition: all 0.2s;
+    }
+    
+    .upload-area:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+    
+    .upload-area.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      transform: scale(0.98);
+    }
     
     /* Left Panel */
     .explorer-panel {
@@ -174,13 +179,6 @@
       border-radius: 12px;
       color: var(--text-primary);
       font-size: 13px;
-      transition: all 0.2s;
-    }
-    
-    .filter-select:focus, .search-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
     }
     
     .plans-list {
@@ -197,30 +195,11 @@
       margin-bottom: 12px;
       cursor: pointer;
       transition: all 0.2s ease;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .plan-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 3px;
-      height: 100%;
-      background: var(--accent);
-      transform: scaleY(0);
-      transition: transform 0.2s;
-    }
-    
-    .plan-card:hover::before, .plan-card.selected::before {
-      transform: scaleY(1);
     }
     
     .plan-card:hover {
       transform: translateX(4px);
       border-color: var(--accent);
-      box-shadow: var(--shadow-hover);
     }
     
     .plan-card.selected {
@@ -278,12 +257,6 @@
       margin-bottom: 20px;
       display: flex;
       gap: 12px;
-      animation: fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
     }
     
     .message.user { flex-direction: row-reverse; }
@@ -319,13 +292,11 @@
     .message.ai .content {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-bottom-left-radius: 4px;
     }
     
     .message.user .content {
       background: linear-gradient(135deg, var(--accent), var(--accent-dark));
       color: white;
-      border-bottom-right-radius: 4px;
     }
     
     .suggestions {
@@ -344,7 +315,6 @@
       border-radius: 40px;
       font-size: 12px;
       cursor: pointer;
-      transition: all 0.2s;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -353,7 +323,6 @@
     .suggestion:hover {
       background: var(--accent);
       border-color: var(--accent);
-      transform: translateY(-2px);
     }
     
     .chat-input-area {
@@ -372,13 +341,11 @@
       border-radius: 40px;
       color: var(--text-primary);
       font-size: 14px;
-      transition: all 0.2s;
     }
     
     .chat-input:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
     }
     
     .send-btn {
@@ -389,12 +356,6 @@
       border-radius: 40px;
       cursor: pointer;
       font-weight: 600;
-      transition: all 0.2s;
-    }
-    
-    .send-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px var(--accent-glow);
     }
     
     .status {
@@ -421,7 +382,13 @@
       50% { opacity: 0.5; }
     }
     
-    /* Scrollbar */
+    .main-container {
+      display: flex;
+      height: calc(100vh - 72px);
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+    
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -436,29 +403,10 @@
       border-radius: 3px;
     }
     
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--accent);
-    }
-    
-    /* Loading */
     .loading {
       text-align: center;
       padding: 40px;
       color: var(--text-secondary);
-    }
-    
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 16px;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -497,6 +445,15 @@
   <div class="main-container">
     <!-- LEFT: Plan Explorer -->
     <div class="explorer-panel">
+      <!-- DRAG & DROP UPLOAD AREA -->
+      <div class="upload-area" id="uploadArea">
+        <i class="fas fa-cloud-upload-alt" style="font-size: 28px; color: var(--accent); margin-bottom: 8px;"></i>
+        <p style="margin: 0; font-size: 13px; font-weight: 500;">Drag & drop PDFs here</p>
+        <p style="margin: 4px 0 0 0; font-size: 11px; color: var(--text-secondary);">Benefits, formularies, or provider directories</p>
+        <div id="uploadProgress" style="display: none; margin-top: 12px;"></div>
+        <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
+      </div>
+      
       <div class="filters">
         <div class="filter-title"><i class="fas fa-sliders-h"></i> Filter Plans</div>
         <div class="filter-group">
@@ -513,7 +470,6 @@
       </div>
       <div id="plansList" class="plans-list">
         <div class="loading">
-          <div class="spinner"></div>
           <div>Loading plans...</div>
         </div>
       </div>
@@ -526,7 +482,7 @@
           <div class="avatar"><i class="fas fa-robot"></i></div>
           <div class="content">
             <strong>MERIDIAN AI</strong><br>
-            👋 Welcome to your Medicare Intelligence Platform. I can help you compare plans, explain benefits, and find the best coverage for your needs. Click any plan on the left to learn more, or ask me anything about Medicare in El Paso.
+            👋 Welcome to your Medicare Intelligence Platform. I can help you compare plans, explain benefits, and find the best coverage. Click any plan on the left to learn more.
           </div>
         </div>
       </div>
@@ -548,6 +504,7 @@
   </div>
 
   <script>
+    // ========== JAVASCRIPT GOES HERE ==========
     let userId = localStorage.getItem('meridian_user_id');
     if (!userId) {
       userId = 'user_' + Math.random().toString(36).substr(2, 9);
@@ -557,7 +514,6 @@
     let currentSelectedPlan = null;
     let allPlans = [];
     
-    // Theme Toggle
     function toggleTheme() {
       if (document.body.classList.contains('light')) {
         document.body.classList.remove('light');
@@ -570,26 +526,21 @@
       }
     }
     
-    // Load saved theme
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
       document.body.classList.remove('light');
       document.body.classList.add('dark');
     }
     
-    // Load plans from API
     async function loadPlans() {
       try {
         const response = await fetch('/api/plans');
         const data = await response.json();
         allPlans = data.plans || [];
-        
-        // Update stats
         document.getElementById('planCount').textContent = allPlans.length;
         const uniqueCarriers = [...new Set(allPlans.map(p => p.carrier).filter(Boolean))];
         document.getElementById('carrierCount').textContent = uniqueCarriers.length;
         
-        // Populate carrier filter
         const carrierSelect = document.getElementById('carrierFilter');
         carrierSelect.innerHTML = '<option value="">All Carriers</option>';
         uniqueCarriers.forEach(carrier => {
@@ -598,7 +549,7 @@
         
         renderPlans();
       } catch (error) {
-        document.getElementById('plansList').innerHTML = '<div class="loading"><i class="fas fa-database"></i><br>No plans loaded yet. Add plans to your database!</div>';
+        document.getElementById('plansList').innerHTML = '<div class="loading">No plans loaded yet. Upload PDFs to get started!</div>';
       }
     }
     
@@ -619,7 +570,7 @@
       
       const container = document.getElementById('plansList');
       if (filtered.length === 0) {
-        container.innerHTML = '<div class="loading"><i class="fas fa-search"></i><br>No plans match your filters</div>';
+        container.innerHTML = '<div class="loading">No plans match your filters</div>';
         return;
       }
       
@@ -640,7 +591,7 @@
       currentSelectedPlan = plan;
       renderPlans();
       document.getElementById('statusText').innerHTML = `Selected: ${plan.carrier} ${plan.plan_name}`;
-      addAIMessage(`✨ I'm looking at **${plan.carrier} ${plan.plan_name}**.\n\n💰 Premium: **$${plan.premium}/mo**\n🛡️ MOOP: **$${plan.moop}**\n${plan.giveback ? `💵 Giveback: **$${plan.giveback}/mo**\n` : ''}\n\nWhat would you like to know about this plan?`);
+      addAIMessage(`✨ I'm looking at **${plan.carrier} ${plan.plan_name}**.\n\n💰 Premium: **$${plan.premium}/mo**\n🛡️ MOOP: **$${plan.moop}**\n\nWhat would you like to know about this plan?`);
     }
     
     async function sendMessage() {
@@ -653,7 +604,7 @@
       
       let fullMessage = message;
       if (currentSelectedPlan) {
-        fullMessage = `[Currently viewing: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}, Premium $${currentSelectedPlan.premium}/mo, MOOP $${currentSelectedPlan.moop}] ${message}`;
+        fullMessage = `[Currently viewing: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}] ${message}`;
       }
       
       document.getElementById('statusText').innerHTML = 'Thinking...';
@@ -704,6 +655,71 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+    
+    // ========== FILE UPLOAD ==========
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('drag-over');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('drag-over');
+    });
+    
+    uploadArea.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+      if (files.length > 0) {
+        await uploadFiles(files);
+      }
+    });
+    
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length > 0) {
+        await uploadFiles(files);
+      }
+      fileInput.value = '';
+    });
+    
+    async function uploadFiles(files) {
+      const formData = new FormData();
+      files.forEach(file => formData.append('pdfs', file));
+      
+      const progressDiv = document.getElementById('uploadProgress');
+      progressDiv.style.display = 'block';
+      progressDiv.innerHTML = `<div style="font-size: 12px;"><i class="fas fa-spinner fa-pulse"></i> Processing ${files.length} file(s)...</div>`;
+      
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          progressDiv.innerHTML = `<div style="font-size: 12px; color: #22c55e;"><i class="fas fa-check-circle"></i> ✅ ${result.results.filter(r => r.success).length} files processed!</div>`;
+          setTimeout(() => {
+            loadPlans();
+            progressDiv.style.display = 'none';
+          }, 2000);
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        progressDiv.innerHTML = `<div style="font-size: 12px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Upload failed</div>`;
+        setTimeout(() => {
+          progressDiv.style.display = 'none';
+        }, 3000);
+      }
     }
     
     document.getElementById('carrierFilter').addEventListener('change', renderPlans);
