@@ -12,7 +12,7 @@ app.use(express.json({ limit: '50mb' }));
 // Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Routes - using require (CommonJS)
+// Routes
 const chatRouter = require('./routes/chat');
 app.use('/api/chat', chatRouter);
 
