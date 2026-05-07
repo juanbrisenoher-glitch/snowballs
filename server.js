@@ -24,6 +24,12 @@ app.use('/api/plans', plansRouter);
 const uploadRouter = require('./routes/upload');
 app.use('/api/upload', uploadRouter);
 
+// Test upload route
+app.post('/test-upload', (req, res) => {
+  console.log('Test endpoint hit!');
+  res.json({ message: 'Test endpoint working' });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
