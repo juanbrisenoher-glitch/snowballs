@@ -1,13 +1,7 @@
-import express from 'express';
-import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,8 +12,8 @@ app.use(express.json({ limit: '50mb' }));
 // Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Routes - using ES module import
-import chatRouter from './routes/chat.js';
+// Routes - using require (CommonJS)
+const chatRouter = require('./routes/chat');
 app.use('/api/chat', chatRouter);
 
 // Health check
