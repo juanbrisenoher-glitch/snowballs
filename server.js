@@ -16,9 +16,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 const chatRouter = require('./routes/chat');
 app.use('/api/chat', chatRouter);
 
-// NEW: Plans API route
+// Plans API route
 const plansRouter = require('./routes/plans');
 app.use('/api/plans', plansRouter);
+
+// NEW: Upload API route (add this line)
+const uploadRouter = require('./routes/upload');
+app.use('/api/upload', uploadRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
