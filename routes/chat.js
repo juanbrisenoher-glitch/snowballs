@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const https = require('https');
-const { pool } = require('../db');
 
 const GROQ_API_KEY = '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';
 
-// Simple conversation memory
+// Store conversations by user ID
 const conversations = new Map();
 
 router.post('/', async (req, res) => {
@@ -16,38 +15,45 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'message required' });
     }
     
-    // Get conversation history
+    // Get or create conversation history for this user
     if (!conversations.has(userId)) {
       conversations.set(userId, []);
     }
     const history = conversations.get(userId);
     
-    // Add user message
+    // Add user message to history
     history.push({ role: 'user', content: message });
-    const recentHistory = history.slice(-6);
     
-    // Build conversation context
-    let conversationText = '';
+    // Keep only last 10 messages for context
+    const recentHistory = history.slice(-10);
+    
+    // Build conversation context string
+    let conversationContext = '';
     for (let i = 0; i < recentHistory.length - 1; i++) {
       const msg = recentHistory[i];
-      conversationText += `${msg.role === 'user' ? 'User' : 'MERIDIAN'}: ${msg.content}\n`;
+      conversationContext += `${msg.role === 'user' ? 'User' : 'MERIDIAN'}: ${msg.content}\n`;
     }
     
-    const systemPrompt = `You are MERIDIAN, a friendly Medicare assistant for El Paso, Texas.
+    const systemPrompt = `You are MERIDIAN, a warm, knowledgeable Medicare assistant for El Paso, Texas.
 
-Rules:
-- Be warm and conversational
-- Say "hi" back when someone says "hi" - respond with something like "Hi there! How can I help with Medicare today?"
-- Keep responses concise but friendly
-- Remember what was said earlier
+PERSONALITY:
+- Friendly and conversational, like a helpful neighbor
+- Say "hi" back naturally when greeted
+- Use the person's name if they share it
+- Be concise but not robotic
 
-${conversationText ? `Previous conversation:\n${conversationText}` : ''}
+MEMORY:
+${conversationContext || "This is the start of the conversation."}
 
-User: ${message}
+Current message from user: "${message}"
 
-Respond as MERIDIAN (short, friendly, helpful):`;
+IMPORTANT: 
+- If this is a greeting, respond warmly and ask how you can help
+- If they're asking about Medicare, be helpful
+- Remember what they've said earlier in this conversation
+
+Respond as MERIDIAN (friendly, helpful, conversational):`;
     
-    // Use https.request instead of fetch
     const response = await new Promise((resolve, reject) => {
       const body = JSON.stringify({
         model: 'llama-3.3-70b-versatile',
@@ -56,7 +62,7 @@ Respond as MERIDIAN (short, friendly, helpful):`;
           { role: 'user', content: message }
         ],
         temperature: 0.8,
-        max_tokens: 300
+        max_tokens: 400
       });
       
       const options = {
@@ -87,12 +93,12 @@ Respond as MERIDIAN (short, friendly, helpful):`;
       request.end();
     });
     
-    let reply = response.choices?.[0]?.message?.content || "Hi! I'm here to help with Medicare questions.";
+    let reply = response.choices?.[0]?.message?.content || "I'm here to help with Medicare questions! What would you like to know?";
     
     // Add assistant reply to history
     history.push({ role: 'assistant', content: reply });
     
-    // Keep history manageable
+    // Keep only last 20 messages total
     if (history.length > 20) {
       conversations.set(userId, history.slice(-20));
     }
