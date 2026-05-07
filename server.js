@@ -20,9 +20,9 @@ app.use('/api/chat', chatRouter);
 const plansRouter = require('./routes/plans');
 app.use('/api/plans', plansRouter);
 
-// NEW: Upload API route (add this line)
-const uploadRouter = require('./routes/upload');
-app.use('/api/upload', uploadRouter);
+// TEMPORARILY COMMENTED OUT - Upload API route
+// const uploadRouter = require('./routes/upload');
+// app.use('/api/upload', uploadRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
