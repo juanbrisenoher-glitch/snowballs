@@ -16,6 +16,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 const chatRouter = require('./routes/chat');
 app.use('/api/chat', chatRouter);
 
+// NEW: Plans API route
+const plansRouter = require('./routes/plans');
+app.use('/api/plans', plansRouter);
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
