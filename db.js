@@ -1,7 +1,9 @@
-// Simple db.js to fix the missing module error
-module.exports = {
-  pool: null,
-  getAll: async () => [],
-  search: async () => [],
-  upsertUser: async () => {}
-};
+import pkg from 'pg';
+const { Pool } = pkg;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+export { pool };
