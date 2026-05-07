@@ -1,150 +1,157 @@
-const express = require('express');
+// routes/chat.js
+import express from 'express';
+import pkg from 'pg';
+import Groq from 'groq-sdk';
+import Fuse from 'fuse.js';
+
+const { Pool } = pkg;
 const router = express.Router();
-const https = require('https');
-const { pool } = require('../db');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const GROQ_API_KEY = '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';
+// ---------- conversation memory (users table) ----------
+async function ensureMemTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      history JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+}
+ensureMemTable().catch(console.error);
 
-// Function to actually query the database for real plan data
-async function getRealPlanData(planName) {
-  try {
-    // Search for plans matching the name
-    const result = await pool.query(`
-      SELECT carrier, plan_name, premium, moop, specialist, pcp, er, 
-             dental_benefit, vision_benefit, hearing_benefit, otc_allowance, 
-             transportation, pers, giveback
-      FROM plans 
-      WHERE plan_name ILIKE $1 OR carrier ILIKE $1
-      LIMIT 5
-    `, [`%${planName}%`]);
-    
-    return result.rows;
-  } catch (err) {
-    console.error('Database error:', err);
-    return [];
-  }
+async function getHistory(userId) {
+  const { rows } = await pool.query('SELECT history FROM users WHERE id=$1', [userId]);
+  return rows[0]?.history ?? [];
+}
+async function saveHistory(userId, history) {
+  const trimmed = history.slice(-20); // keep last 20 turns
+  await pool.query(`
+    INSERT INTO users (id, history, updated_at) VALUES ($1, $2, NOW())
+    ON CONFLICT (id) DO UPDATE SET history=$2, updated_at=NOW();
+  `, [userId, JSON.stringify(trimmed)]);
 }
 
-// Function to get all plans matching a benefit (giveback, low MOOP, etc.)
-async function getPlansByBenefit(benefitType) {
-  try {
-    let query = '';
-    if (benefitType === 'giveback') {
-      query = `SELECT carrier, plan_name, giveback, premium, moop FROM plans WHERE giveback > 0 ORDER BY giveback DESC`;
-    } else if (benefitType === 'lowest moop') {
-      query = `SELECT carrier, plan_name, moop, premium FROM plans ORDER BY moop ASC LIMIT 5`;
-    } else if (benefitType === 'dental') {
-      query = `SELECT carrier, plan_name, dental_benefit, premium FROM plans WHERE dental_benefit IS NOT NULL LIMIT 5`;
-    } else {
-      query = `SELECT carrier, plan_name, premium, moop FROM plans LIMIT 10`;
+// ---------- intent classification ----------
+const INTENT_SYSTEM = `You classify a Medicare shopper's question. Return ONLY JSON:
+{
+ "intent": "list_giveback" | "lowest_moop" | "dental" | "vision" | "otc" | "plan_detail" | "carrier_overview" | "general",
+ "carrier": "Alignment Health"|"Humana"|"Cigna"|"Wellpoint"|"Amerigroup"|"Devoted Health"|null,
+ "plan_query": string|null,    // free-text plan name the user mentioned (e.g. "heart diabetes")
+ "limit": number|null
+}
+Use prior conversation to resolve pronouns ("what about Humana?" → carrier=Humana).`;
+
+async function classify(message, history) {
+  const r = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: INTENT_SYSTEM },
+      ...history.slice(-6),
+      { role: 'user', content: message },
+    ],
+  });
+  try { return JSON.parse(r.choices[0].message.content); }
+  catch { return { intent: 'general', carrier: null, plan_query: null, limit: null }; }
+}
+
+// ---------- fuzzy plan finder ----------
+async function fuzzyFindPlans(query, carrier) {
+  const params = [];
+  let sql = 'SELECT * FROM plans';
+  if (carrier) { params.push(carrier); sql += ` WHERE lower(carrier)=lower($${params.length})`; }
+  const { rows } = await pool.query(sql, params);
+  if (!query) return rows;
+  const fuse = new Fuse(rows, {
+    keys: ['plan_name', 'carrier', 'contract_id', 'raw_excerpt'],
+    threshold: 0.4, ignoreLocation: true,
+  });
+  return fuse.search(query).map(r => r.item);
+}
+
+// ---------- intent → SQL ----------
+async function runIntent(intent) {
+  switch (intent.intent) {
+    case 'list_giveback': {
+      const { rows } = await pool.query(
+        `SELECT carrier, plan_name, giveback, premium FROM plans
+         WHERE giveback IS NOT NULL AND giveback > 0
+         ORDER BY giveback DESC LIMIT $1`, [intent.limit ?? 10]);
+      return { kind: 'list', label: 'Plans with Part B giveback', rows };
     }
-    
-    const result = await pool.query(query);
-    return result.rows;
-  } catch (err) {
-    console.error('Database error:', err);
-    return [];
+    case 'lowest_moop': {
+      const { rows } = await pool.query(
+        `SELECT carrier, plan_name, moop, premium FROM plans
+         WHERE moop IS NOT NULL ORDER BY moop ASC LIMIT $1`, [intent.limit ?? 5]);
+      return { kind: 'list', label: 'Lowest MOOP plans', rows };
+    }
+    case 'dental':
+    case 'vision':
+    case 'otc': {
+      const col = intent.intent === 'otc' ? 'otc_allowance'
+                 : intent.intent === 'dental' ? 'dental_benefit' : 'vision_benefit';
+      const params = []; let where = `${col} IS NOT NULL`;
+      if (intent.carrier) { params.push(intent.carrier); where += ` AND lower(carrier)=lower($${params.length})`; }
+      const { rows } = await pool.query(
+        `SELECT carrier, plan_name, ${col} AS detail FROM plans WHERE ${where} LIMIT 15`, params);
+      return { kind: 'list', label: `${intent.intent.toUpperCase()} benefits`, rows };
+    }
+    case 'plan_detail': {
+      const matches = await fuzzyFindPlans(intent.plan_query, intent.carrier);
+      return { kind: 'detail', rows: matches.slice(0, 3) };
+    }
+    case 'carrier_overview': {
+      const { rows } = await pool.query(
+        `SELECT plan_name, premium, moop, giveback FROM plans
+         WHERE lower(carrier)=lower($1) ORDER BY premium NULLS LAST`, [intent.carrier]);
+      return { kind: 'list', label: `${intent.carrier} plans`, rows };
+    }
+    default:
+      return { kind: 'none', rows: [] };
   }
 }
 
+// ---------- final answer ----------
+const ANSWER_SYSTEM = `You are MERIDIAN, a friendly Medicare plan assistant.
+Use ONLY the JSON facts provided to answer. If facts are empty, say you don't have that information yet.
+Be concise. Format dollar amounts. Use bullet lists for multiple plans.`;
+
+async function answer(message, history, facts) {
+  const r = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.3,
+    messages: [
+      { role: 'system', content: ANSWER_SYSTEM },
+      ...history.slice(-8),
+      { role: 'user', content: message },
+      { role: 'system', content: `FACTS:\n${JSON.stringify(facts)}` },
+    ],
+  });
+  return r.choices[0].message.content;
+}
+
+// ---------- POST /chat ----------
 router.post('/', async (req, res) => {
   try {
-    const { messages } = req.body;
-    const userMessage = messages?.find(m => m.role === 'user')?.content || '';
-    
-    // Determine what the user is asking for
-    let dbContext = '';
-    let plans = [];
-    
-    if (userMessage.toLowerCase().includes('giveback')) {
-      plans = await getPlansByBenefit('giveback');
-      dbContext = plans.length > 0 ? 
-        `REAL PLANS WITH GIVEBACK (from your database):\n${plans.map(p => `• ${p.carrier} ${p.plan_name}: $${p.giveback}/mo giveback, $${p.premium}/mo premium, MOOP $${p.moop}`).join('\n')}` :
-        'No giveback plans found in database.';
-    } 
-    else if (userMessage.toLowerCase().includes('lowest moop') || userMessage.toLowerCase().includes('moop')) {
-      plans = await getPlansByBenefit('lowest moop');
-      dbContext = plans.length > 0 ?
-        `REAL PLANS WITH LOWEST MOOP (from your database):\n${plans.map(p => `• ${p.carrier} ${p.plan_name}: MOOP $${p.moop}, $${p.premium}/mo premium`).join('\n')}` :
-        'No MOOP data found.';
-    }
-    else if (userMessage.toLowerCase().includes('dental')) {
-      plans = await getPlansByBenefit('dental');
-      dbContext = plans.length > 0 ?
-        `REAL DENTAL BENEFITS (from your database):\n${plans.map(p => `• ${p.carrier} ${p.plan_name}: ${p.dental_benefit}, $${p.premium}/mo`).join('\n')}` :
-        'No dental data found.';
-    }
-    else {
-      // Try to find specific plan
-      const planMatch = userMessage.match(/(alignment|humana|cigna|wellpoint|amerigroup|aetna|uhc|united)/i);
-      if (planMatch) {
-        plans = await getRealPlanData(planMatch[0]);
-        if (plans.length > 0) {
-          dbContext = `REAL PLAN DATA FROM YOUR DATABASE:\n${plans.map(p => 
-            `• ${p.carrier} ${p.plan_name}: Premium $${p.premium}/mo, MOOP $${p.moop}, Specialist $${p.specialist}, PCP $${p.pcp}, ER $${p.er}, Dental: ${p.dental_benefit}, Vision: ${p.vision_benefit}, Hearing: ${p.hearing_benefit}, OTC: ${p.otc_allowance}, Transportation: ${p.transportation}, PERS: ${p.pers}`
-          ).join('\n')}`;
-        }
-      }
-    }
-    
-    const systemPrompt = `You are MERIDIAN, a REAL Medicare AI assistant for El Paso, Texas. You have DIRECT ACCESS to actual plan data.
+    const { userId = 'anon', message } = req.body || {};
+    if (!message) return res.status(400).json({ error: 'message required' });
 
-CRITICAL RULES:
-1. ONLY use the data provided below - do NOT make up numbers
-2. If data shows $0, say "$0"
-3. If data shows specific numbers, quote them exactly
-4. If no data is found, say "I don't have that plan in my database yet"
-5. Be specific - give actual dollar amounts from the data
+    const history = await getHistory(userId);
+    const intent = await classify(message, history);
+    const facts = await runIntent(intent);
+    const reply = await answer(message, history, facts);
 
-${dbContext || 'No specific plan data found for this query. Ask user which carrier or plan they want details on.'}
+    const newHistory = [...history, { role: 'user', content: message }, { role: 'assistant', content: reply }];
+    await saveHistory(userId, newHistory);
 
-If you have data above, answer with THOSE exact numbers. If you don't have data, say so clearly.`;
-
-    const body = JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 800,
-      temperature: 0.3,  // Lower temperature = more factual, less creative
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages.slice(-3)  // Only last 3 messages for context
-      ]
-    });
-    
-    const data = await new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'api.groq.com',
-        path: '/openai/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Length': Buffer.byteLength(body)
-        }
-      };
-      
-      const request = https.request(options, (response) => {
-        let data = '';
-        response.on('data', chunk => data += chunk);
-        response.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch(e) { reject(new Error('Failed to parse response')); }
-        });
-      });
-      
-      request.on('error', reject);
-      request.write(body);
-      request.end();
-    });
-    
-    if (data.error) {
-      return res.json({ choices: [{ message: { content: `Error: ${data.error.message}` } }] });
-    }
-    res.json(data);
-    
-  } catch(err) {
-    console.error('Chat error:', err);
-    res.json({ choices: [{ message: { content: 'Having trouble connecting to the database. Please try again.' } }] });
+    res.json({ reply, intent, facts });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
   }
 });
 
-module.exports = router;
+export default router;
