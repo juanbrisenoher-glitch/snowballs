@@ -1,7 +1,13 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,14 +18,13 @@ app.use(express.json({ limit: '50mb' }));
 // Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Routes - COMMENT OUT the broken ones for now
-app.use('/api/chat', require('./routes/chat'));
-// app.use('/api/data', require('./routes/data'));  // Temporarily disabled
-// app.use('/api/import', require('./routes/import'));  // Temporarily disabled
+// Routes - using ES module import
+import chatRouter from './routes/chat.js';
+app.use('/api/chat', chatRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'MERIDIAN Backend', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Root route
