@@ -1,41 +1,113 @@
-// Add this at the top of your script
-let userId = localStorage.getItem('meridian_user_id');
-if (!userId) {
-  userId = 'user_' + Math.random().toString(36).substr(2, 9);
-  localStorage.setItem('meridian_user_id', userId);
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MERIDIAN | TX Medicare Intelligence</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f5f3f0;
+      color: #1a1a2e;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 32px; margin-bottom: 8px; }
+    .sub { color: #6b6b7a; margin-bottom: 32px; }
+    .chat-box {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e2dfd9;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .messages {
+      height: 300px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      padding: 10px;
+    }
+    .user { text-align: right; color: #c8553d; margin: 10px 0; }
+    .ai { text-align: left; color: #1a7a6e; margin: 10px 0; }
+    .input-area { display: flex; gap: 10px; }
+    input { flex: 1; padding: 12px; border-radius: 40px; border: 1px solid #e2dfd9; font-size: 14px; }
+    button { padding: 12px 24px; background: #c8553d; color: white; border: none; border-radius: 40px; cursor: pointer; }
+    .suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+    .suggestion { background: #f1f5f9; padding: 8px 16px; border-radius: 40px; cursor: pointer; font-size: 12px; }
+    .status { font-size: 12px; color: #6b6b7a; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🤖 MERIDIAN AI</h1>
+  <div class="sub">Your Texas Medicare Intelligence Assistant</div>
 
-// Update your sendMessage function to include userId
-async function sendMessage() {
-  const input = document.getElementById('userInput');
-  const message = input.value.trim();
-  if (!message) return;
-  
-  const messagesDiv = document.getElementById('messages');
-  messagesDiv.innerHTML += `<div class="user">👤 You: ${message}</div>`;
-  input.value = '';
-  
-  const statusDiv = document.getElementById('status');
-  statusDiv.innerHTML = '⏳ Thinking...';
-  
-  try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        userId: userId,
-        message: message 
-      })
-    });
-    
-    const data = await response.json();
-    const reply = data.reply || "Sorry, I couldn't process that.";
-    
-    messagesDiv.innerHTML += `<div class="ai">🤖 AI: ${reply}</div>`;
-    statusDiv.innerHTML = '✅ Ready';
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  } catch (error) {
-    messagesDiv.innerHTML += `<div class="ai">🤖 AI: Error connecting to server.</div>`;
-    statusDiv.innerHTML = '❌ Connection error';
+  <div class="chat-box">
+    <div class="messages" id="messages">
+      <div class="ai">👋 Hi! I'm MERIDIAN AI. Ask me about Medicare plans, giveback, MOOP, dental benefits, or specific drugs.</div>
+    </div>
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="Type your question..." onkeypress="if(event.key==='Enter') sendMessage()">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+    <div class="suggestions">
+      <div class="suggestion" onclick="ask('Which plans have giveback?')">💰 Which plans have giveback?</div>
+      <div class="suggestion" onclick="ask('Show me lowest MOOP plans')">📋 Show me lowest MOOP plans</div>
+      <div class="suggestion" onclick="ask('What dental benefits are available?')">🦷 What dental benefits are available?</div>
+      <div class="suggestion" onclick="ask('Tell me about Eliquis coverage')">💊 Tell me about Eliquis</div>
+    </div>
+    <div class="status" id="status">✅ Ready</div>
+  </div>
+</div>
+
+<script>
+  // Generate persistent user ID
+  let userId = localStorage.getItem('meridian_user_id');
+  if (!userId) {
+    userId = 'user_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('meridian_user_id', userId);
   }
-}
+
+  async function sendMessage() {
+    const input = document.getElementById('userInput');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    const messagesDiv = document.getElementById('messages');
+    messagesDiv.innerHTML += `<div class="user">👤 You: ${message}</div>`;
+    input.value = '';
+    
+    const statusDiv = document.getElementById('status');
+    statusDiv.innerHTML = '⏳ Thinking...';
+    
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: userId,
+          message: message 
+        })
+      });
+      
+      const data = await response.json();
+      const reply = data.reply || "Sorry, I couldn't process that.";
+      
+      messagesDiv.innerHTML += `<div class="ai">🤖 AI: ${reply}</div>`;
+      statusDiv.innerHTML = '✅ Ready';
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    } catch (error) {
+      messagesDiv.innerHTML += `<div class="ai">🤖 AI: Error connecting to server.</div>`;
+      statusDiv.innerHTML = '❌ Connection error';
+    }
+  }
+  
+  function ask(question) {
+    document.getElementById('userInput').value = question;
+    sendMessage();
+  }
+</script>
+</body>
+</html>
