@@ -2,17 +2,13 @@
   "name": "meridian-backend",
   "version": "2.0.0",
   "main": "server.js",
-  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "import": "node scripts/import-plans.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "pg": "^8.11.3",
-    "groq-sdk": "^0.3.0",
-    "fuse.js": "^7.0.0"
+    "pg": "^8.11.3"
   }
 }
