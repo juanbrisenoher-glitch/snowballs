@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const https = require('https');
 const { pool } = require('../db');
 
 const GROQ_API_KEY = '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';
@@ -23,65 +24,70 @@ router.post('/', async (req, res) => {
     
     // Add user message
     history.push({ role: 'user', content: message });
-    const recentHistory = history.slice(-10);
+    const recentHistory = history.slice(-6);
     
-    // Simple database query for plans
-    let dbContext = '';
-    const msg = message.toLowerCase();
-    
-    if (msg.includes('giveback')) {
-      try {
-        const result = await pool.query(
-          `SELECT carrier, plan_name, giveback, premium FROM plans 
-           WHERE giveback > 0 ORDER BY giveback DESC LIMIT 5`
-        );
-        if (result.rows.length > 0) {
-          dbContext = result.rows.map(p => 
-            `${p.carrier} ${p.plan_name}: $${p.giveback}/mo giveback`
-          ).join('\n');
-        }
-      } catch (err) {
-        console.log('No plans table yet:', err.message);
-      }
+    // Build conversation context
+    let conversationText = '';
+    for (let i = 0; i < recentHistory.length - 1; i++) {
+      const msg = recentHistory[i];
+      conversationText += `${msg.role === 'user' ? 'User' : 'MERIDIAN'}: ${msg.content}\n`;
     }
     
-    // Build prompt with conversation memory
-    let systemPrompt = `You are MERIDIAN, a friendly Medicare assistant for El Paso, Texas.
+    const systemPrompt = `You are MERIDIAN, a friendly Medicare assistant for El Paso, Texas.
 
 Rules:
 - Be warm and conversational
-- Say "hi" back when someone says "hi"
+- Say "hi" back when someone says "hi" - respond with something like "Hi there! How can I help with Medicare today?"
 - Keep responses concise but friendly
-- Remember what was said earlier in this conversation
+- Remember what was said earlier
 
-${dbContext ? `\nHere is some plan data you can use:\n${dbContext}\n` : ''}
+${conversationText ? `Previous conversation:\n${conversationText}` : ''}
 
-Previous conversation:
-${recentHistory.slice(0, -1).map(m => `${m.role === 'user' ? 'User' : 'MERIDIAN'}: ${m.content}`).join('\n')}
+User: ${message}
 
-User's new message: "${message}"
-
-Respond naturally as MERIDIAN.`;
+Respond as MERIDIAN (short, friendly, helpful):`;
     
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
+    // Use https.request instead of fetch
+    const response = await new Promise((resolve, reject) => {
+      const body = JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
         temperature: 0.8,
-        max_tokens: 500
-      })
+        max_tokens: 300
+      });
+      
+      const options = {
+        hostname: 'api.groq.com',
+        path: '/openai/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Length': Buffer.byteLength(body)
+        }
+      };
+      
+      const request = https.request(options, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Failed to parse response'));
+          }
+        });
+      });
+      
+      request.on('error', reject);
+      request.write(body);
+      request.end();
     });
     
-    const data = await response.json();
-    let reply = data.choices?.[0]?.message?.content || "I couldn't process that.";
+    let reply = response.choices?.[0]?.message?.content || "Hi! I'm here to help with Medicare questions.";
     
     // Add assistant reply to history
     history.push({ role: 'assistant', content: reply });
@@ -95,7 +101,7 @@ Respond naturally as MERIDIAN.`;
     
   } catch (error) {
     console.error('Chat error:', error);
-    res.json({ reply: "Hi! I'm here to help with Medicare questions. What would you like to know?" });
+    res.json({ reply: "Hi there! I'm MERIDIAN, your Medicare assistant. What can I help you with today?" });
   }
 });
 
