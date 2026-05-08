@@ -13,7 +13,6 @@ const pool = new Pool({
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Ensure documents table exists (with plan_name column)
 async function ensureTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS documents (
@@ -25,13 +24,11 @@ async function ensureTable() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
-  // Add plan_name column if missing (idempotent)
   await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS plan_name TEXT;`);
   await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_url TEXT;`);
 }
 ensureTable().catch(console.error);
 
-// Extract plan name from PDF text using regex
 function extractPlanName(text, filename) {
   const patterns = [
     /(Alignment Health\s+[A-Za-z0-9\s\+]+?\s*\([A-Za-z\-]+\))/i,
@@ -46,29 +43,22 @@ function extractPlanName(text, filename) {
     const match = text.match(pattern);
     if (match) return match[1].trim();
   }
-  // Fallback to filename (remove .pdf)
   return filename.replace(/\.pdf$/i, '').replace(/\.zip.*$/i, '');
 }
 
-// Core ingestion for a single PDF buffer
 async function ingestPDF(buffer, filename, sourceUrl = null) {
   const data = await pdfParse(buffer);
   const text = data.text;
   const planName = extractPlanName(text, filename);
-  
-  await pool.query(`
-    INSERT INTO documents (filename, content, plan_name, source_url)
-    VALUES ($1, $2, $3, $4)
-  `, [filename, text, planName, sourceUrl]);
-  
-  // Update in‑memory cache
+  await pool.query(
+    'INSERT INTO documents (filename, content, plan_name, source_url) VALUES ($1, $2, $3, $4)',
+    [filename, text, planName, sourceUrl]
+  );
   if (!global.documentCache) global.documentCache = [];
   global.documentCache.push({ filename, content: text, plan_name: planName, source_url: sourceUrl });
-  
   return { filename, planName, charCount: text.length };
 }
 
-// Process a ZIP file: extract all PDFs and ingest each
 async function ingestZip(buffer, zipFilename, sourceUrl = null) {
   const zip = new AdmZip(buffer);
   const entries = zip.getEntries();
@@ -76,7 +66,6 @@ async function ingestZip(buffer, zipFilename, sourceUrl = null) {
   const results = [];
   for (const entry of pdfEntries) {
     const pdfBuffer = entry.getData();
-    // Use full path inside zip as filename
     const internalName = `${zipFilename}/${entry.entryName}`;
     const result = await ingestPDF(pdfBuffer, internalName, sourceUrl);
     results.push(result);
@@ -84,11 +73,9 @@ async function ingestZip(buffer, zipFilename, sourceUrl = null) {
   return results;
 }
 
-// POST /api/ingest - handles single PDF or ZIP (file upload)
 router.post('/ingest', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    
     const isZip = req.file.mimetype === 'application/zip' || req.file.originalname.endsWith('.zip');
     if (isZip) {
       const results = await ingestZip(req.file.buffer, req.file.originalname);
@@ -103,12 +90,10 @@ router.post('/ingest', upload.single('file'), async (req, res) => {
   }
 });
 
-// POST /api/ingest/url - download PDF from URL and ingest
 router.post('/ingest/url', express.json(), async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
-    
     const pdfBuffer = await new Promise((resolve, reject) => {
       https.get(url, (resp) => {
         if (resp.statusCode !== 200) reject(new Error(`HTTP ${resp.statusCode}`));
@@ -128,11 +113,9 @@ router.post('/ingest/url', express.json(), async (req, res) => {
   }
 });
 
-// POST /api/ingest/batch - array of URLs
 router.post('/ingest/batch', express.json(), async (req, res) => {
   const { urls } = req.body;
   if (!urls || !Array.isArray(urls)) return res.status(400).json({ error: 'urls array required' });
-  
   const results = [];
   for (const url of urls) {
     try {
@@ -156,7 +139,6 @@ router.post('/ingest/batch', express.json(), async (req, res) => {
   res.json({ success: true, results });
 });
 
-// GET /api/ingest/status
 router.get('/status', async (req, res) => {
   const count = await pool.query('SELECT COUNT(*) FROM documents');
   res.json({ documents: parseInt(count.rows[0].count) });
