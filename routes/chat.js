@@ -1,14 +1,50 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const Anthropic = require('@anthropic-ai/sdk');
+const https = require('https');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+async function askGroq(systemPrompt, userMessage) {
+  const body = JSON.stringify({
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage }
+    ],
+    temperature: 0.3,
+    max_tokens: 800
+  });
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.groq.com',
+      path: '/openai/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (resp) => {
+      let data = '';
+      resp.on('data', c => data += c);
+      resp.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.error) reject(new Error(json.error.message));
+          else resolve(json.choices?.[0]?.message?.content || 'No response');
+        } catch(e) { reject(new Error('Invalid response from Groq')); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
 
 // ─── Search document_chunks using full-text search ────────────────────────────
 async function searchChunks(question, planName = null, docType = null) {
