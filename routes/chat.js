@@ -8,9 +8,8 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-console.log(`🔑 GROQ_API_KEY present: ${GROQ_API_KEY ? 'YES' : 'NO'}`);
-if (!GROQ_API_KEY) console.error('❌ GROQ_API_KEY environment variable is missing!');
+// TODO: Replace this hardcoded key with process.env.GROQ_API_KEY later
+const GROQ_API_KEY = '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';
 
 let documentCache = [];
 
@@ -44,14 +43,9 @@ function findRelevantChunks(question) {
 router.post('/', async (req, res) => {
   try {
     const { message } = req.body;
-    console.log(`📨 Received message: "${message}"`);
-
-    if (!message) {
-      return res.status(400).json({ error: 'message required' });
-    }
+    if (!message) return res.status(400).json({ error: 'message required' });
 
     const context = findRelevantChunks(message).join('\n\n').slice(0, 6000);
-    console.log(`📄 Context length: ${context.length} chars`);
 
     const systemPrompt = `You are MERIDIAN, a Medicare assistant. Use the context below to answer. If the answer is not in the context, say "I don't have that information in my documents."
 
@@ -81,8 +75,6 @@ Answer the user's question concisely.`;
       }
     };
 
-    console.log(`🚀 Calling Groq API with key: ${GROQ_API_KEY ? GROQ_API_KEY.substring(0,10)+'...' : 'MISSING'}`);
-
     const groqResponse = await new Promise((resolve, reject) => {
       const request = https.request(options, (response) => {
         let data = '';
@@ -90,31 +82,20 @@ Answer the user's question concisely.`;
         response.on('end', () => {
           try {
             const json = JSON.parse(data);
-            if (json.error) {
-              console.error('Groq API error:', json.error);
-              reject(new Error(json.error.message));
-            } else {
-              resolve(json);
-            }
-          } catch (e) {
-            console.error('Failed to parse Groq response:', e);
-            reject(new Error('Invalid JSON from Groq'));
-          }
+            if (json.error) reject(new Error(json.error.message));
+            else resolve(json);
+          } catch (e) { reject(new Error('Invalid JSON from Groq')); }
         });
       });
-      request.on('error', (err) => {
-        console.error('Request error:', err);
-        reject(err);
-      });
+      request.on('error', reject);
       request.write(body);
       request.end();
     });
 
     const reply = groqResponse.choices?.[0]?.message?.content || "I couldn't process that.";
-    console.log(`✅ Reply: ${reply.substring(0, 100)}...`);
     res.json({ reply });
   } catch (err) {
-    console.error('Chat route error:', err);
+    console.error('Chat error:', err);
     res.status(500).json({ reply: `Error: ${err.message}` });
   }
 });
