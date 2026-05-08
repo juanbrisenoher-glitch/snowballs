@@ -10,12 +10,12 @@ const pool = new Pool({
 
 const GROQ_API_KEY = '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';
 
-// Load documents on startup
+// Load documents into memory on startup
 async function loadDocuments() {
   try {
     const result = await pool.query('SELECT filename, content FROM documents');
     global.documentCache = result.rows;
-    console.log(`✅ Loaded ${global.documentCache.length} documents for RAG`);
+    console.log(`📚 Loaded ${global.documentCache.length} documents for RAG`);
   } catch (err) {
     console.error('Failed to load documents:', err.message);
     global.documentCache = [];
@@ -23,7 +23,7 @@ async function loadDocuments() {
 }
 loadDocuments();
 
-// Simple retrieval (chunked keyword matching)
+// Simple chunked keyword‑based retrieval
 function findRelevantChunks(question, documents, maxChunks = 3) {
   const words = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
   if (!documents.length) return [];
@@ -50,15 +50,15 @@ router.post('/ask', async (req, res) => {
       return res.status(400).json({ error: 'question required' });
     }
 
-    console.log(`📝 RAG question: ${question}`);
+    console.log(`📝 /ask received: ${question.substring(0, 60)}...`);
 
     const docs = global.documentCache || [];
     const relevant = findRelevantChunks(question, docs);
-    console.log(`📚 Found ${relevant.length} relevant chunks`);
+    console.log(`📚 Found ${relevant.length} relevant chunks (out of ${docs.length} docs)`);
 
     const context = relevant.map(c => c.content).join('\n\n').substring(0, 6000);
 
-    const prompt = `You are MERIDIAN, a Medicare assistant. Use the context below to answer. If the answer is not in the context, say "I don't have that information in my documents."
+    const prompt = `You are MERIDIAN, a Medicare assistant. Use the context below to answer the question. If the answer is not in the context, say "I don't have that information in my documents."
 
 Context:
 ${context || "No relevant documents found."}
@@ -93,7 +93,7 @@ Answer:`;
           try {
             const json = JSON.parse(data);
             if (json.error) {
-              console.error('Groq API error:', json.error);
+              console.error('Groq API error:', json.error.message);
               reject(new Error(json.error.message));
             } else {
               resolve(json);
@@ -109,12 +109,11 @@ Answer:`;
     });
 
     const answer = groqResponse.choices?.[0]?.message?.content || "I couldn't process that.";
-    console.log(`🤖 RAG answer length: ${answer.length}`);
+    console.log(`🤖 Answer length: ${answer.length}`);
     res.json({ answer });
-
   } catch (err) {
-    console.error('RAG endpoint error:', err.message);
-    res.status(500).json({ answer: `Error: ${err.message}` });
+    console.error('RAG error:', err.message);
+    res.status(500).json({ answer: `Internal error: ${err.message}` });
   }
 });
 
