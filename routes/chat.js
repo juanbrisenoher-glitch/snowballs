@@ -9,26 +9,24 @@ const pool = new Pool({
 });
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-if (!GROQ_API_KEY) console.error('❌ GROQ_API_KEY not set in environment');
+console.log(`🔑 GROQ_API_KEY present: ${GROQ_API_KEY ? 'YES' : 'NO'}`);
+if (!GROQ_API_KEY) console.error('❌ GROQ_API_KEY environment variable is missing!');
 
-// Load documents once on startup
-let documentCache = null;
+let documentCache = [];
 
 async function loadDocuments() {
   try {
     const result = await pool.query('SELECT filename, content FROM documents');
     documentCache = result.rows;
-    console.log(`📚 Chat RAG loaded ${documentCache.length} documents`);
+    console.log(`📚 Loaded ${documentCache.length} documents for RAG`);
   } catch (err) {
     console.error('Failed to load documents:', err.message);
-    documentCache = [];
   }
 }
 loadDocuments();
 
-// Simple chunk‑based retrieval (keyword overlap)
-function findRelevantChunks(question, maxChunks = 3) {
-  if (!documentCache || documentCache.length === 0) return [];
+function findRelevantChunks(question) {
+  if (!documentCache.length) return [];
   const words = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
   const chunks = [];
   for (const doc of documentCache) {
@@ -39,69 +37,85 @@ function findRelevantChunks(question, maxChunks = 3) {
       if (score > 0) chunks.push({ content: chunk, score });
     }
   }
-  chunks.sort((a, b) => b.score - a.score);
-  return chunks.slice(0, maxChunks).map(c => c.content);
+  chunks.sort((a,b) => b.score - a.score);
+  return chunks.slice(0, 3).map(c => c.content);
 }
 
 router.post('/', async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'message required' });
+    console.log(`📨 Received message: "${message}"`);
 
-    // Get relevant document chunks
-    const relevantChunks = findRelevantChunks(message);
-    const context = relevantChunks.join('\n\n').slice(0, 6000);
+    if (!message) {
+      return res.status(400).json({ error: 'message required' });
+    }
 
-    const systemPrompt = `You are MERIDIAN, a Medicare assistant. 
-Use the following context from official plan documents to answer the user's question. 
-If the answer is not in the context, say "I don't have that information in my documents yet."
+    const context = findRelevantChunks(message).join('\n\n').slice(0, 6000);
+    console.log(`📄 Context length: ${context.length} chars`);
+
+    const systemPrompt = `You are MERIDIAN, a Medicare assistant. Use the context below to answer. If the answer is not in the context, say "I don't have that information in my documents."
 
 CONTEXT:
 ${context || "No relevant documents found."}
 
-Be helpful, concise, and use specific details from the context.`;
+Answer the user's question concisely.`;
 
-    const response = await new Promise((resolve, reject) => {
-      const body = JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.3,
-        max_tokens: 500
-      });
-      const options = {
-        hostname: 'api.groq.com',
-        path: '/openai/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Length': Buffer.byteLength(body)
-        }
-      };
-      const request = https.request(options, (resp) => {
+    const body = JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.3,
+      max_tokens: 500
+    });
+
+    const options = {
+      hostname: 'api.groq.com',
+      path: '/openai/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+
+    console.log(`🚀 Calling Groq API with key: ${GROQ_API_KEY ? GROQ_API_KEY.substring(0,10)+'...' : 'MISSING'}`);
+
+    const groqResponse = await new Promise((resolve, reject) => {
+      const request = https.request(options, (response) => {
         let data = '';
-        resp.on('data', chunk => data += chunk);
-        resp.on('end', () => {
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
           try {
-            resolve(JSON.parse(data));
+            const json = JSON.parse(data);
+            if (json.error) {
+              console.error('Groq API error:', json.error);
+              reject(new Error(json.error.message));
+            } else {
+              resolve(json);
+            }
           } catch (e) {
+            console.error('Failed to parse Groq response:', e);
             reject(new Error('Invalid JSON from Groq'));
           }
         });
       });
-      request.on('error', reject);
+      request.on('error', (err) => {
+        console.error('Request error:', err);
+        reject(err);
+      });
       request.write(body);
       request.end();
     });
 
-    const reply = response.choices?.[0]?.message?.content || "I couldn't process that.";
+    const reply = groqResponse.choices?.[0]?.message?.content || "I couldn't process that.";
+    console.log(`✅ Reply: ${reply.substring(0, 100)}...`);
     res.json({ reply });
   } catch (err) {
-    console.error('Chat error:', err);
-    res.status(500).json({ reply: 'Internal error. Please try again.' });
+    console.error('Chat route error:', err);
+    res.status(500).json({ reply: `Error: ${err.message}` });
   }
 });
 
