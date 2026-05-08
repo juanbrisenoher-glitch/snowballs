@@ -13,83 +13,102 @@ const pool = new Pool({
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Helper: extract plan name from PDF text
+// Ensure documents table exists (with plan_name column)
+async function ensureTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      filename TEXT,
+      content TEXT,
+      plan_name TEXT,
+      source_url TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // Add plan_name column if missing (idempotent)
+  await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS plan_name TEXT;`);
+  await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_url TEXT;`);
+}
+ensureTable().catch(console.error);
+
+// Extract plan name from PDF text using regex
 function extractPlanName(text, filename) {
-  // First try to find a common pattern: "Alignment Health X (HMO...)"
   const patterns = [
     /(Alignment Health\s+[A-Za-z0-9\s\+]+?\s*\([A-Za-z\-]+\))/i,
     /(Alignment Health\s+[A-Za-z0-9\s\+]+?\s*\([A-Za-z\-]+\s+[A-Za-z\-]+\))/i,
     /(Wellpoint\s+[A-Za-z\s]+\([A-Za-z\-]+\))/i,
     /(Humana\s+[A-Za-z\s]+\([A-Za-z\-]+\))/i,
-    /(Cigna\s+[A-Za-z\s]+\([A-Za-z\-]+\))/i
+    /(Cigna\s+[A-Za-z\s]+\([A-Za-z\-]+\))/i,
+    /(Devoted Health\s+[A-Za-z\s]+\([A-Za-z\-]+\))/i,
+    /(Amerigroup\s+[A-Za-z\s]+\([A-Za-z\-]+\))/i
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) return match[1].trim();
   }
-  // If no pattern matches, fallback to filename (remove .pdf)
-  return filename.replace(/\.pdf$/i, '');
+  // Fallback to filename (remove .pdf)
+  return filename.replace(/\.pdf$/i, '').replace(/\.zip.*$/i, '');
 }
 
-// Core ingestion (single PDF)
-async function ingestPDF(buffer, filename, isZip = false, zipPath = '') {
+// Core ingestion for a single PDF buffer
+async function ingestPDF(buffer, filename, sourceUrl = null) {
   const data = await pdfParse(buffer);
   const text = data.text;
   const planName = extractPlanName(text, filename);
-  const docType = filename.toLowerCase().includes('formulary') ? 'formulary' :
-                  filename.toLowerCase().includes('provider') ? 'provider' :
-                  filename.toLowerCase().includes('otc') ? 'otc' :
-                  filename.toLowerCase().includes('benefits') ? 'benefits' : 'other';
-
+  
   await pool.query(`
-    INSERT INTO documents (filename, content, plan_name, doc_type)
+    INSERT INTO documents (filename, content, plan_name, source_url)
     VALUES ($1, $2, $3, $4)
-  `, [filename, text, planName, docType]);
-
-  // Update memory cache
+  `, [filename, text, planName, sourceUrl]);
+  
+  // Update in‑memory cache
   if (!global.documentCache) global.documentCache = [];
-  global.documentCache.push({ filename, content: text, plan_name: planName, doc_type: docType });
-
-  return { filename, planName, docType };
+  global.documentCache.push({ filename, content: text, plan_name: planName, source_url: sourceUrl });
+  
+  return { filename, planName, charCount: text.length };
 }
 
-// Process ZIP (extract all PDFs)
-async function ingestZip(buffer, zipFilename) {
+// Process a ZIP file: extract all PDFs and ingest each
+async function ingestZip(buffer, zipFilename, sourceUrl = null) {
   const zip = new AdmZip(buffer);
   const entries = zip.getEntries();
   const pdfEntries = entries.filter(e => !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'));
   const results = [];
   for (const entry of pdfEntries) {
     const pdfBuffer = entry.getData();
-    const result = await ingestPDF(pdfBuffer, `${zipFilename}/${entry.entryName}`, true, entry.entryName);
+    // Use full path inside zip as filename
+    const internalName = `${zipFilename}/${entry.entryName}`;
+    const result = await ingestPDF(pdfBuffer, internalName, sourceUrl);
     results.push(result);
   }
   return results;
 }
 
-// POST /api/ingest (file upload)
+// POST /api/ingest - handles single PDF or ZIP (file upload)
 router.post('/ingest', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    
     const isZip = req.file.mimetype === 'application/zip' || req.file.originalname.endsWith('.zip');
     if (isZip) {
       const results = await ingestZip(req.file.buffer, req.file.originalname);
       return res.json({ success: true, message: `Processed ZIP: ${results.length} PDFs ingested`, results });
     } else {
       const result = await ingestPDF(req.file.buffer, req.file.originalname);
-      return res.json({ success: true, message: `Ingested ${result.filename} (plan: ${result.planName})` });
+      return res.json({ success: true, message: `Ingested ${result.filename} (plan: ${result.planName})`, result });
     }
   } catch (err) {
-    console.error(err);
+    console.error('Ingest error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/ingest/url
+// POST /api/ingest/url - download PDF from URL and ingest
 router.post('/ingest/url', express.json(), async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
+    
     const pdfBuffer = await new Promise((resolve, reject) => {
       https.get(url, (resp) => {
         if (resp.statusCode !== 200) reject(new Error(`HTTP ${resp.statusCode}`));
@@ -101,18 +120,19 @@ router.post('/ingest/url', express.json(), async (req, res) => {
       }).on('error', reject);
     });
     const filename = url.split('/').pop() || 'document.pdf';
-    const result = await ingestPDF(pdfBuffer, filename);
+    const result = await ingestPDF(pdfBuffer, filename, url);
     res.json({ success: true, message: `Ingested from URL: ${result.filename} (plan: ${result.planName})` });
   } catch (err) {
-    console.error(err);
+    console.error('URL ingest error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/ingest/batch (multiple URLs)
+// POST /api/ingest/batch - array of URLs
 router.post('/ingest/batch', express.json(), async (req, res) => {
   const { urls } = req.body;
   if (!urls || !Array.isArray(urls)) return res.status(400).json({ error: 'urls array required' });
+  
   const results = [];
   for (const url of urls) {
     try {
@@ -127,7 +147,7 @@ router.post('/ingest/batch', express.json(), async (req, res) => {
         }).on('error', reject);
       });
       const filename = url.split('/').pop() || 'document.pdf';
-      const result = await ingestPDF(pdfBuffer, filename);
+      const result = await ingestPDF(pdfBuffer, filename, url);
       results.push({ url, success: true, plan: result.planName });
     } catch (err) {
       results.push({ url, success: false, error: err.message });
@@ -138,8 +158,8 @@ router.post('/ingest/batch', express.json(), async (req, res) => {
 
 // GET /api/ingest/status
 router.get('/status', async (req, res) => {
-  const docs = await pool.query('SELECT COUNT(*) FROM documents');
-  res.json({ documents: parseInt(docs.rows[0].count) });
+  const count = await pool.query('SELECT COUNT(*) FROM documents');
+  res.json({ documents: parseInt(count.rows[0].count) });
 });
 
 module.exports = router;
