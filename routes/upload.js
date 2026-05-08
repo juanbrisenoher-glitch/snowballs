@@ -1,53 +1,99 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { Pool } = require('pg');
+const pdfParse = require('pdf-parse');
+const AdmZip = require('adm-zip');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Simple endpoint to add a plan manually
-router.post('/add-plan', express.json(), async (req, res) => {
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Ensure documents table has the needed columns
+async function ensureTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      filename TEXT,
+      content TEXT,
+      plan_name TEXT,
+      doc_type TEXT,
+      source_url TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS plan_name TEXT;`);
+  await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS doc_type TEXT;`);
+}
+ensureTable().catch(console.error);
+
+// Ingest a single PDF buffer
+async function ingestPDF(buffer, filename, planName, docType) {
+  const data = await pdfParse(buffer);
+  const text = data.text;
+  await pool.query(
+    `INSERT INTO documents (filename, content, plan_name, doc_type) VALUES ($1, $2, $3, $4)`,
+    [filename, text, planName, docType]
+  );
+  // Update in-memory cache
+  if (!global.documentCache) global.documentCache = [];
+  global.documentCache.push({ filename, content: text, plan_name: planName, doc_type: docType });
+  return { filename, planName, docType, charCount: text.length };
+}
+
+// Handle ZIP upload
+async function ingestZip(buffer, zipFilename, planName, docType) {
+  const zip = new AdmZip(buffer);
+  const entries = zip.getEntries();
+  const pdfEntries = entries.filter(e => !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'));
+  const results = [];
+  for (const entry of pdfEntries) {
+    const pdfBuffer = entry.getData();
+    const internalName = `${zipFilename}/${entry.entryName}`;
+    const result = await ingestPDF(pdfBuffer, internalName, planName, docType);
+    results.push(result);
+  }
+  return results;
+}
+
+// POST /api/upload/ingest
+router.post('/ingest', upload.single('file'), async (req, res) => {
   try {
-    const { carrier, plan_name, premium, giveback, moop } = req.body;
-    
-    if (!carrier || !plan_name) {
-      return res.json({ success: false, error: 'Carrier and plan name required' });
+    const { plan_name, doc_type } = req.body;
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!plan_name) return res.status(400).json({ error: 'Plan name is required' });
+    if (!doc_type) return res.status(400).json({ error: 'Document type is required' });
+
+    const isZip = req.file.mimetype === 'application/zip' || req.file.originalname.endsWith('.zip');
+    if (isZip) {
+      const results = await ingestZip(req.file.buffer, req.file.originalname, plan_name, doc_type);
+      return res.json({ success: true, message: `Processed ZIP: ${results.length} PDFs ingested`, results });
+    } else {
+      const result = await ingestPDF(req.file.buffer, req.file.originalname, plan_name, doc_type);
+      return res.json({ success: true, message: `Ingested ${result.filename} (plan: ${result.planName})` });
     }
-    
-    await pool.query(`
-      INSERT INTO plans (carrier, plan_name, premium, giveback, moop)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (plan_name) DO UPDATE SET
-        premium = EXCLUDED.premium,
-        giveback = EXCLUDED.giveback,
-        moop = EXCLUDED.moop
-    `, [carrier, plan_name, premium || 0, giveback || 0, moop || null]);
-    
-    res.json({ success: true, message: `Added plan: ${carrier} - ${plan_name}` });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    console.error('Ingest error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Get all plans
-router.get('/plans', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM plans ORDER BY carrier, plan_name');
-    res.json({ plans: result.rows });
-  } catch (error) {
-    res.json({ plans: [] });
-  }
-});
-
+// GET /api/upload/status – returns list of indexed documents (grouped by plan_name + doc_type)
 router.get('/status', async (req, res) => {
   try {
-    const result = await pool.query('SELECT COUNT(*) FROM plans');
-    res.json({ plans: parseInt(result.rows[0].count) });
-  } catch (error) {
-    res.json({ plans: 0 });
+    const result = await pool.query(`
+      SELECT plan_name, doc_type, COUNT(*) as chunks
+      FROM documents
+      WHERE plan_name IS NOT NULL AND doc_type IS NOT NULL
+      GROUP BY plan_name, doc_type
+      ORDER BY plan_name
+    `);
+    res.json({ indexed_chunks: result.rows });
+  } catch (err) {
+    res.json({ indexed_chunks: [] });
   }
 });
 
