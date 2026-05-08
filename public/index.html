@@ -454,7 +454,7 @@
         fd.append('plan_name', planName);
         fd.append('doc_type', docType);
 
-        const data = await fetch('/api/upload/ingest', { method:'POST', body:fd }).then(r => r.json());
+        const data = await fetch('/api/ingest', { method:'POST', body:fd }).then(r => r.json());
         clearInterval(ticker); bar.style.width = '100%';
 
         if (data.success) {
