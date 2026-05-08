@@ -596,6 +596,56 @@
           <i class="fas fa-chevron-down toggle-icon" id="uploadToggleIcon"></i>
         </div>
         <div class="upload-body" id="uploadBody">
+
+  <!-- Plan Name -->
+  <input type="text" id="uploadPlanName" class="upload-input" 
+    placeholder="Plan name (e.g. Humana Gold Plus HMO)" 
+    style="width:100%; margin-bottom:10px;"
+    oninput="checkUploadReady()">
+
+  <!-- Doc Type -->
+  <select id="uploadDocType" class="upload-select" 
+    style="width:100%; margin-bottom:10px;"
+    onchange="checkUploadReady()">
+    <option value="">— Select document type —</option>
+    <option value="formulary">💊 Formulary (Drug List)</option>
+    <option value="provider_directory">🏥 Provider Directory</option>
+    <option value="plan_benefits">📋 Plan Benefits</option>
+    <option value="summary_of_benefits">📄 Summary of Benefits</option>
+    <option value="otc_benefits">🛒 OTC Benefits Catalog</option>
+    <option value="dental_vision">🦷 Dental / Vision / Hearing</option>
+    <option value="prior_authorization">📝 Prior Authorization List</option>
+  </select>
+
+  <!-- File Drop Zone -->
+  <div class="file-drop-zone" id="dropZone" 
+    onclick="document.getElementById('pdfFileInput').click()"
+    ondragover="handleDragOver(event)" 
+    ondragleave="handleDragLeave(event)" 
+    ondrop="handleDrop(event)">
+    <i class="fas fa-cloud-upload-alt"></i>
+    <span id="dropZoneLabel">Drop PDF here or click to browse</span>
+    <input type="file" id="pdfFileInput" accept=".pdf,.zip" onchange="handleFileSelect(event)">
+  </div>
+
+  <!-- Upload Button -->
+  <button class="upload-btn" id="uploadBtn" onclick="uploadDocument()" disabled>
+    <i class="fas fa-upload"></i> Upload & Index Document
+  </button>
+
+  <!-- Progress -->
+  <div class="upload-progress" id="uploadProgress">
+    <span id="uploadProgressText">Processing...</span>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+  </div>
+
+  <!-- Result -->
+  <div class="upload-result" id="uploadResult"></div>
+
+  <!-- Indexed Docs List -->
+  <div class="ingested-list" id="ingestedList"></div>
+
+</div>
     
           <!-- Plan Name + Doc Type -->
           <div class="upload-row">
