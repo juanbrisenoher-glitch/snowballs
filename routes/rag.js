@@ -1,100 +1,100 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const https = require('https');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const GROQ_API_KEY = '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';
+// ─── POST /api/ask ────────────────────────────────────────────────────────────
+// Body: { question, plan_name? (optional), doc_type? (optional) }
+router.post('/ask', express.json(), async (req, res) => {
+  const { question, plan_name, doc_type } = req.body;
+  if (!question) return res.status(400).json({ error: 'question is required' });
 
-let documentCache = [];
-
-async function loadDocuments() {
   try {
-    const result = await pool.query('SELECT filename, content FROM documents');
-    documentCache = result.rows;
-    console.log(`📚 RAG loaded ${documentCache.length} documents`);
-  } catch (err) {
-    console.error('Failed to load documents:', err.message);
-  }
-}
-loadDocuments();
+    // Build query terms for full-text search
+    const searchTerms = question
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+      .join(' | '); // OR search — finds chunks with any of the words
 
-function findRelevantChunks(question) {
-  if (!documentCache.length) return [];
-  const words = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
-  const chunks = [];
-  for (const doc of documentCache) {
-    for (let i = 0; i < doc.content.length; i += 1000) {
-      const chunk = doc.content.slice(i, i + 1000);
-      let score = 0;
-      for (const w of words) if (chunk.toLowerCase().includes(w)) score++;
-      if (score > 0) chunks.push({ content: chunk, score });
-    }
-  }
-  chunks.sort((a,b) => b.score - a.score);
-  return chunks.slice(0, 3).map(c => c.content);
-}
+    const conditions = [];
+    const params = [searchTerms];
 
-router.post('/ask', async (req, res) => {
-  try {
-    const { question } = req.body;
-    if (!question) return res.status(400).json({ error: 'question required' });
+    if (plan_name) { params.push(`%${plan_name}%`); conditions.push(`plan_name ILIKE $${params.length}`); }
+    if (doc_type)  { params.push(doc_type);          conditions.push(`doc_type = $${params.length}`); }
 
-    const context = findRelevantChunks(question).join('\n\n').slice(0, 6000);
+    const whereClause = conditions.length ? `AND ${conditions.join(' AND ')}` : '';
 
-    const prompt = `You are MERIDIAN. Use the context below to answer. If not in context, say "I don't have that information."
+    // Full-text search — no OpenAI needed, uses PostgreSQL ts_vector
+    const { rows } = await pool.query(`
+      SELECT content, plan_name, doc_type,
+             ts_rank(search_vector, to_tsquery('english', $1)) AS rank
+      FROM document_chunks
+      WHERE search_vector @@ to_tsquery('english', $1)
+      ${whereClause}
+      ORDER BY rank DESC
+      LIMIT 6
+    `, params);
 
-Context:
-${context || "No relevant documents."}
-
-Question: ${question}
-
-Answer:`;
-
-    const body = JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 500
-    });
-
-    const options = {
-      hostname: 'api.groq.com',
-      path: '/openai/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Length': Buffer.byteLength(body)
+    // Fallback: if full-text search finds nothing, do a simple ILIKE keyword search
+    let chunks = rows;
+    if (chunks.length === 0) {
+      const keywords = question.split(/\s+/).filter(w => w.length > 3);
+      const likeClause = keywords.map((_, i) => `content ILIKE $${params.length + i + 1}`).join(' OR ');
+      if (likeClause) {
+        const likeParams = [...params, ...keywords.map(k => `%${k}%`)];
+        const fallback = await pool.query(`
+          SELECT content, plan_name, doc_type, 0 as rank
+          FROM document_chunks
+          WHERE (${likeClause}) ${whereClause}
+          LIMIT 6
+        `, likeParams);
+        chunks = fallback.rows;
       }
-    };
+    }
 
-    const groqResponse = await new Promise((resolve, reject) => {
-      const reqGroq = https.request(options, (resp) => {
-        let data = '';
-        resp.on('data', chunk => data += chunk);
-        resp.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            if (json.error) reject(new Error(json.error.message));
-            else resolve(json);
-          } catch (e) { reject(new Error('Invalid JSON from Groq')); }
-        });
+    if (chunks.length === 0) {
+      return res.json({
+        answer: `I don't have ingested documents to answer that yet. Please upload the relevant plan PDFs first using the Upload section.`,
+        sources: [],
+        used_rag: false
       });
-      reqGroq.on('error', reject);
-      reqGroq.write(body);
-      reqGroq.end();
+    }
+
+    // Build context for Claude
+    const context = chunks
+      .map(r => `=== ${r.plan_name} | ${r.doc_type} ===\n${r.content}`)
+      .join('\n\n');
+
+    const message = await anthropic.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 1024,
+      system: `You are MERIDIAN, a Medicare intelligence assistant for licensed insurance agents in El Paso, TX.
+Answer questions about Medicare Advantage plans, formularies, provider networks, and benefits using ONLY the document excerpts provided.
+Be specific and always mention which plan your answer refers to.
+If the context doesn't fully answer the question, say so clearly — do not make up information.`,
+      messages: [{
+        role: 'user',
+        content: `Answer this question using the Medicare document excerpts below.\n\nQUESTION: ${question}\n\nDOCUMENT EXCERPTS:\n${context}`
+      }]
     });
 
-    const answer = groqResponse.choices?.[0]?.message?.content || "I couldn't process that.";
-    res.json({ answer });
+    res.json({
+      answer: message.content[0].text,
+      sources: chunks.map(r => ({ plan: r.plan_name, type: r.doc_type })),
+      used_rag: true
+    });
+
   } catch (err) {
-    console.error('RAG error:', err);
-    res.status(500).json({ answer: `Error: ${err.message}` });
+    console.error('[RAG ERROR]', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
