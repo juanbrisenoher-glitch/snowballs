@@ -8,10 +8,10 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// TEMPORARY hardcoded key – replace with your valid key
+// TEMPORARY hardcoded key
 const GROQ_API_KEY = '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';
 
-// Load documents (with plan names) into memory
+// Load documents into memory
 async function loadDocuments() {
   try {
     const result = await pool.query('SELECT filename, content, plan_name FROM documents');
@@ -24,7 +24,13 @@ async function loadDocuments() {
 }
 loadDocuments();
 
-// Detect plan name from user question
+// Get all distinct plan names from documents
+async function getAllPlanNames() {
+  const result = await pool.query('SELECT DISTINCT plan_name FROM documents WHERE plan_name IS NOT NULL AND plan_name != \'\' ORDER BY plan_name');
+  return result.rows.map(row => row.plan_name);
+}
+
+// Detect which plan user is asking about
 function detectPlanName(question) {
   const q = question.toLowerCase();
   const planKeywords = [
@@ -42,7 +48,6 @@ function detectPlanName(question) {
   return null;
 }
 
-// Chunk retrieval with optional plan filtering
 function findRelevantChunks(question, documents, planName = null, maxChunks = 4) {
   const words = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
   if (!documents.length) return [];
@@ -73,6 +78,18 @@ router.post('/', async (req, res) => {
   try {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: 'message required' });
+
+    // Handle plan listing requests
+    const lowerMsg = message.toLowerCase();
+    if (lowerMsg.includes('what plans') || lowerMsg.includes('list plans') || lowerMsg.includes('which plans') || lowerMsg.includes('plans do you have')) {
+      const planNames = await getAllPlanNames();
+      if (planNames.length > 0) {
+        const planList = planNames.map((name, i) => `${i+1}. ${name}`).join('\n');
+        return res.json({ reply: `Here are the Medicare plans I have documents for:\n${planList}\n\nAsk me about any of them for details.` });
+      } else {
+        return res.json({ reply: 'I don’t have any plan documents yet. Please upload PDFs first using the "Ingest Documents" section.' });
+      }
+    }
 
     const planName = detectPlanName(message);
     const docs = global.documentCache || [];
