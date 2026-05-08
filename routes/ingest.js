@@ -4,6 +4,7 @@ const multer = require('multer');
 const { Pool } = require('pg');
 const https = require('https');
 const pdfParse = require('pdf-parse');
+const AdmZip = require('adm-zip');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -26,7 +27,7 @@ async function ensureTable() {
 }
 ensureTable();
 
-// Core function to ingest PDF buffer
+// Core function to ingest a PDF buffer
 async function ingestPDF(buffer, filename, sourceUrl = null) {
   const data = await pdfParse(buffer);
   const text = data.text;
@@ -43,27 +44,59 @@ async function ingestPDF(buffer, filename, sourceUrl = null) {
   return { filename, charCount: text.length };
 }
 
-// POST /api/ingest – upload a PDF file
+// Process a ZIP buffer, extract all PDFs and ingest them
+async function ingestZip(buffer, zipFilename) {
+  const zip = new AdmZip(buffer);
+  const zipEntries = zip.getEntries();
+  const pdfEntries = zipEntries.filter(entry => 
+    !entry.isDirectory && entry.entryName.toLowerCase().endsWith('.pdf')
+  );
+
+  const results = [];
+  for (const entry of pdfEntries) {
+    const pdfBuffer = entry.getData();
+    const result = await ingestPDF(pdfBuffer, `${zipFilename}/${entry.entryName}`);
+    results.push(result);
+  }
+  return results;
+}
+
+// POST /api/ingest – handles both PDF and ZIP files
 router.post('/ingest', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    const result = await ingestPDF(req.file.buffer, req.file.originalname);
-    res.json({ success: true, message: `Ingested ${result.filename} (${result.charCount} chars)` });
+
+    const isZip = req.file.mimetype === 'application/zip' || 
+                  req.file.originalname.toLowerCase().endsWith('.zip');
+    
+    if (isZip) {
+      const results = await ingestZip(req.file.buffer, req.file.originalname);
+      return res.json({ 
+        success: true, 
+        message: `Processed ZIP: ${results.length} PDFs ingested`,
+        results 
+      });
+    } else {
+      const result = await ingestPDF(req.file.buffer, req.file.originalname);
+      return res.json({ 
+        success: true, 
+        message: `Ingested ${result.filename} (${result.charCount} chars)`
+      });
+    }
   } catch (error) {
     console.error('Ingest error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST /api/ingest/url – download PDF from URL and ingest
+// POST /api/ingest/url – unchanged (supports single PDF URL)
 router.post('/ingest/url', express.json(), async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
 
-    // Download PDF
     const pdfBuffer = await new Promise((resolve, reject) => {
       https.get(url, (response) => {
         if (response.statusCode !== 200) {
@@ -78,14 +111,14 @@ router.post('/ingest/url', express.json(), async (req, res) => {
 
     const filename = url.split('/').pop() || 'document.pdf';
     const result = await ingestPDF(pdfBuffer, filename, url);
-    res.json({ success: true, message: `Ingested ${result.filename} from URL (${result.charCount} chars)` });
+    res.json({ success: true, message: `Ingested from URL: ${result.filename}` });
   } catch (error) {
     console.error('URL ingest error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST /api/ingest/batch – multiple URLs in one request
+// POST /api/ingest/batch – unchanged (batch of PDF URLs)
 router.post('/ingest/batch', express.json(), async (req, res) => {
   const { urls } = req.body;
   if (!urls || !Array.isArray(urls)) {
