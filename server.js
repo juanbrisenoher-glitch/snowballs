@@ -24,11 +24,13 @@ app.use('/api/plans', plansRouter);
 const uploadRouter = require('./routes/upload');
 app.use('/api/upload', uploadRouter);
 
-// Test upload route
-app.post('/test-upload', (req, res) => {
-  console.log('Test endpoint hit!');
-  res.json({ message: 'Test endpoint working' });
-});
+// Ingest routes (from Claude)
+const ingestRouter = require('./routes/ingest');
+app.use('/', ingestRouter);
+
+// RAG routes (from Claude)
+const ragRouter = require('./routes/rag');
+app.use('/', ragRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
