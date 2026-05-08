@@ -441,7 +441,54 @@
   <div class="main-container">
     <!-- LEFT: Plan Explorer -->
     <div class="explorer-panel">
-      <!-- Manual Add Plan Form -->
+<!-- PDF INGESTION SECTION -->
+<div style="margin: 16px; padding: 16px; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border);">
+  <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;"><i class="fas fa-database"></i> Ingest Documents (PDFs)</div>
+  
+  <!-- Tabs -->
+  <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <button id="ingestFileTab" class="ingest-tab active" onclick="switchIngestTab('file')" style="flex:1; padding:6px; border:none; border-radius:8px; background:var(--accent); color:white; cursor:pointer;">📁 Upload File</button>
+    <button id="ingestUrlTab" class="ingest-tab" onclick="switchIngestTab('url')" style="flex:1; padding:6px; border:none; border-radius:8px; background:var(--bg-primary); color:var(--text-primary); cursor:pointer;">🔗 Single URL</button>
+    <button id="ingestBatchTab" class="ingest-tab" onclick="switchIngestTab('batch')" style="flex:1; padding:6px; border:none; border-radius:8px; background:var(--bg-primary); color:var(--text-primary); cursor:pointer;">📦 Batch URLs</button>
+  </div>
+  
+  <!-- File upload UI -->
+  <div id="fileIngestArea">
+    <div class="upload-area" style="padding:16px; border:2px dashed var(--border); border-radius:12px; text-align:center; cursor:pointer; background:var(--bg-card);" onclick="document.getElementById('pdfFileInput').click()">
+      <i class="fas fa-cloud-upload-alt" style="font-size:24px; color:var(--accent);"></i>
+      <p style="margin:8px 0 0; font-size:12px;">Click or drag PDF here</p>
+      <input type="file" id="pdfFileInput" accept=".pdf" style="display:none;">
+    </div>
+    <div id="fileIngestProgress" style="font-size:11px; margin-top:8px;"></div>
+  </div>
+  
+  <!-- Single URL UI -->
+  <div id="urlIngestArea" style="display:none;">
+    <input type="text" id="singleUrlInput" placeholder="https://example.com/plan.pdf" style="width:100%; padding:8px; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
+    <button id="ingestSingleUrlBtn" style="margin-top:8px; width:100%; padding:8px; background:var(--accent); border:none; border-radius:8px; color:white; cursor:pointer;">Ingest URL</button>
+    <div id="urlIngestProgress" style="font-size:11px; margin-top:8px;"></div>
+  </div>
+  
+  <!-- Batch URLs UI -->
+  <div id="batchIngestArea" style="display:none;">
+    <textarea id="batchUrlsInput" rows="3" placeholder="Paste one URL per line&#10;https://.../plan1.pdf&#10;https://.../plan2.pdf" style="width:100%; padding:8px; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);"></textarea>
+    <button id="ingestBatchBtn" style="margin-top:8px; width:100%; padding:8px; background:var(--accent); border:none; border-radius:8px; color:white; cursor:pointer;">Ingest All URLs</button>
+    <div id="batchIngestProgress" style="font-size:11px; margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- Manual Add Plan Form (keep for manual entry) -->
+<div style="margin: 16px; padding: 16px; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border);">
+  <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Add Plan Manually</div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <input type="text" id="manualCarrier" placeholder="Carrier" style="flex: 1; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;">
+    <input type="text" id="manualPlanName" placeholder="Plan Name" style="flex: 2; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;">
+    <input type="number" id="manualPremium" placeholder="Premium $" style="width: 100px; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;">
+    <input type="number" id="manualMoop" placeholder="MOOP $" style="width: 100px; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;">
+    <button id="addPlanBtn" style="padding: 8px 16px; background: var(--accent); border: none; border-radius: 8px; color: white; cursor: pointer;">Add</button>
+  </div>
+  <div id="addPlanMessage" style="font-size: 11px; margin-top: 8px;"></div>
+</div>
       <div style="margin: 16px; padding: 16px; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border);">
         <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Add Plan Manually</div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
