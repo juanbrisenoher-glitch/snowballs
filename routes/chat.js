@@ -8,10 +8,10 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// TEMPORARY hardcoded key
+// TEMPORARY hardcoded key – replace with your valid key
 const GROQ_API_KEY = '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';
 
-// Load documents into memory
+// Load documents into memory cache
 async function loadDocuments() {
   try {
     const result = await pool.query('SELECT filename, content, plan_name FROM documents');
@@ -24,13 +24,13 @@ async function loadDocuments() {
 }
 loadDocuments();
 
-// Get all distinct plan names from documents
+// Get all distinct plan names
 async function getAllPlanNames() {
   const result = await pool.query('SELECT DISTINCT plan_name FROM documents WHERE plan_name IS NOT NULL AND plan_name != \'\' ORDER BY plan_name');
   return result.rows.map(row => row.plan_name);
 }
 
-// Detect which plan user is asking about
+// Detect plan name from user question
 function detectPlanName(question) {
   const q = question.toLowerCase();
   const planKeywords = [
@@ -48,10 +48,31 @@ function detectPlanName(question) {
   return null;
 }
 
-function findRelevantChunks(question, documents, planName = null, maxChunks = 4) {
+// Directly search for a drug name within a document's content (full text)
+function findDrugDetails(docContent, drugName) {
+  const lines = docContent.split('\n');
+  const drugLower = drugName.toLowerCase();
+  const relevantLines = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase().includes(drugLower)) {
+      // capture this line and the next few lines (often contains tier, QL)
+      let block = lines[i];
+      for (let j = i+1; j < Math.min(i+5, lines.length); j++) {
+        block += '\n' + lines[j];
+      }
+      relevantLines.push(block);
+      i += 4; // skip ahead to avoid duplicates
+    }
+  }
+  return relevantLines.join('\n\n');
+}
+
+// Enhanced chunk retrieval: for drug questions, use full document search
+function findRelevantChunks(question, documents, planName = null, maxChunks = 6) {
   const words = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
   if (!documents.length) return [];
 
+  // Filter by plan name if specified
   let filteredDocs = documents;
   if (planName) {
     filteredDocs = documents.filter(doc => doc.plan_name && doc.plan_name.toLowerCase() === planName.toLowerCase());
@@ -61,10 +82,34 @@ function findRelevantChunks(question, documents, planName = null, maxChunks = 4)
     }
   }
 
+  // Check if this is a drug‑specific question
+  const isDrugQuery = words.some(w => w.match(/^(metformin|eliquis|ozempic|insulin|lisinopril|atorvastatin|glipizide|glyburide)$/i)) ||
+                      question.toLowerCase().includes('tier') ||
+                      question.toLowerCase().includes('quantity limit') ||
+                      question.toLowerCase().includes('prior auth');
+
+  if (isDrugQuery) {
+    // Extract the drug name (take the first long word that looks like a drug)
+    const drugNameMatch = question.match(/\b([A-Za-z]+(?:[ -][A-Za-z]+)*)\b/i);
+    const drugName = drugNameMatch ? drugNameMatch[1] : words[0];
+    let fullContext = '';
+    for (const doc of filteredDocs) {
+      const details = findDrugDetails(doc.content, drugName);
+      if (details) {
+        fullContext += `\n--- From ${doc.filename} ---\n${details}\n`;
+      }
+    }
+    if (fullContext) {
+      // return as a single chunk (the whole extracted block)
+      return [fullContext];
+    }
+  }
+
+  // Standard chunking (increase chunk size and number)
   const chunks = [];
   for (const doc of filteredDocs) {
-    for (let i = 0; i < doc.content.length; i += 1000) {
-      const chunk = doc.content.slice(i, i + 1000);
+    for (let i = 0; i < doc.content.length; i += 2000) {  // larger chunk size
+      const chunk = doc.content.slice(i, i + 2000);
       let score = 0;
       for (const w of words) if (chunk.toLowerCase().includes(w)) score++;
       if (score > 0) chunks.push({ content: chunk, score });
@@ -79,7 +124,7 @@ router.post('/', async (req, res) => {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: 'message required' });
 
-    // Handle plan listing requests
+    // Handle plan listing
     const lowerMsg = message.toLowerCase();
     if (lowerMsg.includes('what plans') || lowerMsg.includes('list plans') || lowerMsg.includes('which plans') || lowerMsg.includes('plans do you have')) {
       const planNames = await getAllPlanNames();
@@ -94,13 +139,13 @@ router.post('/', async (req, res) => {
     const planName = detectPlanName(message);
     const docs = global.documentCache || [];
     const relevantChunks = findRelevantChunks(message, docs, planName);
-    const context = relevantChunks.join('\n\n').slice(0, 6000);
+    const context = relevantChunks.join('\n\n').slice(0, 8000);  // larger context limit
 
     let systemPrompt = `You are MERIDIAN, a Medicare assistant. Use the context below to answer. If the answer is not in the context, say "I don't have that information in my documents."`;
     if (planName) {
       systemPrompt += `\n\nThe user asked about the plan "${planName}". Only use the context that comes from that plan.`;
     }
-    systemPrompt += `\n\nCONTEXT:\n${context || "No relevant documents found."}\n\nAnswer the user's question concisely.`;
+    systemPrompt += `\n\nCONTEXT:\n${context || "No relevant documents found."}\n\nAnswer the user's question concisely and include specific numbers (tier, copay, quantity limits) if available.`;
 
     const body = JSON.stringify({
       model: 'llama-3.3-70b-versatile',
@@ -109,7 +154,7 @@ router.post('/', async (req, res) => {
         { role: 'user', content: message }
       ],
       temperature: 0.3,
-      max_tokens: 500
+      max_tokens: 600
     });
 
     const options = {
