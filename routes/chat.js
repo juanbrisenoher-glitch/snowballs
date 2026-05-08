@@ -8,10 +8,10 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-if (!GROQ_API_KEY) console.error('❌ GROQ_API_KEY not set');
+// TEMPORARY hardcoded key – replace with your valid key
+const GROQ_API_KEY = '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';
 
-// Load documents into memory cache (runs once on startup)
+// Load documents (with plan names) into memory
 async function loadDocuments() {
   try {
     const result = await pool.query('SELECT filename, content, plan_name FROM documents');
@@ -24,10 +24,9 @@ async function loadDocuments() {
 }
 loadDocuments();
 
-// Try to detect which plan the user is asking about
+// Detect plan name from user question
 function detectPlanName(question) {
   const q = question.toLowerCase();
-  // Map of known plan names (add all your 6 plans)
   const planKeywords = [
     { name: 'Alignment Health the ONE + Walgreens (HMO-POS)', keywords: ['one + walgreens', 'the one', 'one walgreens', 'h5472-001'] },
     { name: 'Alignment Health smartSavings (HMO-POS)', keywords: ['smartsavings', 'smart savings', 'h5472-010'] },
@@ -43,18 +42,16 @@ function detectPlanName(question) {
   return null;
 }
 
-// Chunk-based keyword retrieval (only from matching plan if detected)
+// Chunk retrieval with optional plan filtering
 function findRelevantChunks(question, documents, planName = null, maxChunks = 4) {
   const words = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
   if (!documents.length) return [];
 
-  // Filter by plan name if specified
   let filteredDocs = documents;
   if (planName) {
     filteredDocs = documents.filter(doc => doc.plan_name && doc.plan_name.toLowerCase() === planName.toLowerCase());
     if (filteredDocs.length === 0) {
-      // No documents for that plan – maybe the plan name wasn't stored correctly; fallback to all docs
-      console.log(`⚠️ No documents found for plan "${planName}", using all documents.`);
+      console.log(`⚠️ No docs for plan "${planName}", using all documents.`);
       filteredDocs = documents;
     }
   }
@@ -65,7 +62,7 @@ function findRelevantChunks(question, documents, planName = null, maxChunks = 4)
       const chunk = doc.content.slice(i, i + 1000);
       let score = 0;
       for (const w of words) if (chunk.toLowerCase().includes(w)) score++;
-      if (score > 0) chunks.push({ content: chunk, score, plan_name: doc.plan_name });
+      if (score > 0) chunks.push({ content: chunk, score });
     }
   }
   chunks.sort((a,b) => b.score - a.score);
@@ -88,26 +85,28 @@ router.post('/', async (req, res) => {
     }
     systemPrompt += `\n\nCONTEXT:\n${context || "No relevant documents found."}\n\nAnswer the user's question concisely.`;
 
-    const response = await new Promise((resolve, reject) => {
-      const body = JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.3,
-        max_tokens: 500
-      });
-      const options = {
-        hostname: 'api.groq.com',
-        path: '/openai/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Length': Buffer.byteLength(body)
-        }
-      };
+    const body = JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.3,
+      max_tokens: 500
+    });
+
+    const options = {
+      hostname: 'api.groq.com',
+      path: '/openai/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+
+    const groqResponse = await new Promise((resolve, reject) => {
       const request = https.request(options, (resp) => {
         let data = '';
         resp.on('data', chunk => data += chunk);
@@ -124,7 +123,7 @@ router.post('/', async (req, res) => {
       request.end();
     });
 
-    const reply = response.choices?.[0]?.message?.content || "I couldn't process that.";
+    const reply = groqResponse.choices?.[0]?.message?.content || "I couldn't process that.";
     res.json({ reply });
   } catch (err) {
     console.error('Chat error:', err);
