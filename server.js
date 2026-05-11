@@ -26,14 +26,13 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // ---------------------------
-// 1. CHAT endpoint (uses documents from database)
+// CHAT endpoint
 // ---------------------------
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    // Search for relevant documents by filename or content
     const result = await pool.query(
       `SELECT filename, content 
        FROM documents 
@@ -46,7 +45,6 @@ app.post('/api/chat', async (req, res) => {
       return res.json({ reply: "I couldn't find any relevant information in your uploaded documents. Try a different question or upload more documents." });
     }
 
-    // Build context from the retrieved documents
     const context = result.rows
       .map(row => `[File: ${row.filename}]\n${row.content.substring(0, 2000)}`)
       .join('\n\n');
@@ -75,7 +73,7 @@ ${context}`
 });
 
 // ---------------------------
-// 2. DOCUMENT UPLOAD endpoint (for the "Scan document" tab)
+// DOCUMENT UPLOAD endpoint
 // ---------------------------
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
@@ -84,8 +82,7 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
     }
 
     const filename = req.file.originalname;
-    // Convert buffer to text (for .txt files – for PDF you'd need pdf-parse)
-    const content = req.file.buffer.toString('utf-8');
+    const content = req.file.buffer.toString('utf-8'); // For .txt files
 
     const result = await pool.query(
       'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
