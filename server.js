@@ -1,36 +1,52 @@
-require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
+const Groq = require('groq-sdk');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ---------- Routes ----------
-const chatRouter = require('./routes/chat');
-const plansRouter = require('./routes/plans');
-const uploadRouter = require('./routes/upload');   // add‑plan, ingest, status
-const scanRouter = require('./routes/scan');
-
-app.use('/api/chat', chatRouter);
-app.use('/api/plans', plansRouter);
-app.use('/api/upload', uploadRouter);
-app.use('/api/scan-document', scanRouter);
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Initialize Groq client with API key from environment variable
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 });
 
-// Root route - serve index.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.use(express.json());
+app.use(express.static('public'));
+
+// API endpoint for chat
+app.post('/api/chat', async (req, res) => {
+  const { message } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful Medicare assistant. Provide accurate, concise information about Medicare benefits, eligibility, enrollment, and plans. Always clarify that you are an AI and recommend consulting official Medicare resources or a licensed agent for personalized advice.',
+        },
+        {
+          role: 'user',
+          content: message,
+        },
+      ],
+      // Using a fast, capable free model
+      model: 'llama-3.1-8b-instant',
+      temperature: 0.5,
+      max_tokens: 1024,
+    });
+
+    const reply = chatCompletion.choices[0].message.content;
+    res.json({ reply });
+  } catch (error) {
+    console.error('Groq API error:', error);
+    res.status(500).json({ error: 'Failed to get response from AI. Please try again.' });
+  }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ MERIDIAN Backend running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
