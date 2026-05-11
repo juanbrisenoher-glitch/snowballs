@@ -6,12 +6,11 @@ const https = require('https');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Use the API key from environment variables (set in Railway)
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 if (!GROQ_API_KEY) {
-  console.error('❌ GROQ_API_KEY environment variable is not set!');
+  console.error('❌ GROQ_API_KEY environment variable is NOT set!');
 } else {
-  console.log('✅ GROQ_API_KEY loaded (first 10 chars):', GROQ_API_KEY.substring(0, 10) + '...');
+  console.log(`✅ GROQ_API_KEY loaded (first 8 chars): ${GROQ_API_KEY.substring(0,8)}...`);
 }
 
 const PROMPTS = {
@@ -83,13 +82,11 @@ router.post('/', upload.single('file'), async (req, res) => {
     if (!plan_name) return res.status(400).json({ error: 'Plan name required' });
     if (!doc_type || !PROMPTS[doc_type]) return res.status(400).json({ error: 'Valid doc_type required' });
 
-    // Extract text from PDF
     const pdfData = await pdfParse(req.file.buffer);
     const text = pdfData.text.slice(0, 25000);
 
     const prompt = PROMPTS[doc_type];
     const systemMsg = `You are a data extraction assistant. Return ONLY valid JSON. No explanations, no markdown, no backticks.`;
-
     const userMsg = `Plan name: ${plan_name}\nDocument type: ${doc_type}\n\nPDF TEXT:\n${text}\n\nNow return the JSON as instructed.`;
 
     const response = await new Promise((resolve, reject) => {
