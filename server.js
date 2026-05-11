@@ -13,13 +13,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ---------- Routes ----------
 const chatRouter = require('./routes/chat');
 const plansRouter = require('./routes/plans');
-const uploadRouter = require('./routes/upload');   // handles /add-plan, /ingest, /status
+const uploadRouter = require('./routes/upload');   // add‑plan, ingest, status
 const scanRouter = require('./routes/scan');
 
 app.use('/api/chat', chatRouter);
 app.use('/api/plans', plansRouter);
-app.use('/api/upload', uploadRouter);      // POST /api/upload/add-plan, POST /api/upload/ingest, GET /api/upload/status
-app.use('/api/scan-document', scanRouter); // POST /api/scan-document
+app.use('/api/upload', uploadRouter);
+app.use('/api/scan-document', scanRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
