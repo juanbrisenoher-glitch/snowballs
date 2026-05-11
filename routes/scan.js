@@ -6,7 +6,13 @@ const https = require('https');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const GROQ_API_KEY = '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';
+// Read API key from environment variable (set in Railway)
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (!GROQ_API_KEY) {
+  console.error('❌ GROQ_API_KEY environment variable is not set!');
+} else {
+  console.log('✅ GROQ_API_KEY loaded (first 10 chars):', GROQ_API_KEY.substring(0, 10) + '...');
+}
 
 const PROMPTS = {
   summary_of_benefits: `Extract ALL benefit information from this Medicare Advantage Summary of Benefits text. Return ONLY valid JSON with these fields: 
