@@ -8,130 +8,532 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; transition: all 0.3s ease; }
-
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      transition: all 0.3s ease;
+    }
+    
+    /* Light Mode (Default) */
     body.light {
-      --bg-primary: #f5f7fb; --bg-secondary: #ffffff; --bg-card: #ffffff;
-      --text-primary: #1a1a2e; --text-secondary: #64748b; --border: #e2e8f0;
-      --accent: #3b82f6; --accent-dark: #2563eb; --accent-glow: rgba(59,130,246,0.2);
+      --bg-primary: #f5f7fb;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --text-primary: #1a1a2e;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --accent: #3b82f6;
+      --accent-dark: #2563eb;
+      --accent-glow: rgba(59,130,246,0.2);
       --header-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
     }
+    
+    /* Dark Mode */
     body.dark {
-      --bg-primary: #0f0f1a; --bg-secondary: #1a1a2e; --bg-card: #1e1e35;
-      --text-primary: #f1f5f9; --text-secondary: #94a3b8; --border: #2d2d44;
-      --accent: #60a5fa; --accent-dark: #3b82f6; --accent-glow: rgba(96,165,250,0.15);
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #1a1a2e;
+      --bg-card: #1e1e35;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --border: #2d2d44;
+      --accent: #60a5fa;
+      --accent-dark: #3b82f6;
+      --accent-glow: rgba(96,165,250,0.15);
       --header-bg: linear-gradient(135deg, #0f0f1a 0%, #0a0a12 100%);
     }
-    body { background: var(--bg-primary); color: var(--text-primary); }
-
-    .header { background: var(--header-bg); padding: 16px 32px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
-    .header-content { max-width: 1600px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-    .logo h1 { font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .logo p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-    .theme-toggle { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 40px; padding: 8px 16px; cursor: pointer; display: flex; gap: 8px; transition: all 0.3s; }
-
-    .stats-bar { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 8px 24px; display: flex; gap: 24px; font-size: 13px; }
-    .stat { display: flex; align-items: center; gap: 8px; }
+    
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    
+    /* Header */
+    .header {
+      background: var(--header-bg);
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .header-content {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo h1 {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .logo p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    
+    .theme-toggle {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding: 8px 16px;
+      cursor: pointer;
+      display: flex;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+    
+    /* Stats Bar */
+    .stats-bar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+    }
+    
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
     .stat i { color: var(--accent); font-size: 14px; }
     .stat-value { font-weight: 600; color: var(--text-primary); }
     .stat-label { color: var(--text-secondary); }
-
-    .main-container { display: flex; height: calc(100vh - 100px); max-width: 1600px; margin: 0 auto; }
-
-    /* LEFT PANEL */
-    .explorer-panel { width: 40%; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
-
-    .filters { padding: 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
-    .filter-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 16px; }
-    .filter-group { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-    .filter-select, .search-input { flex: 1; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-size: 13px; }
-    .filter-select:focus, .search-input:focus { outline: none; border-color: var(--accent); }
-
-    .plans-list { flex: 1; overflow-y: auto; padding: 16px; }
-    .plan-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s ease; }
-    .plan-card:hover { transform: translateX(4px); border-color: var(--accent); }
-    .plan-card.selected { background: var(--accent-glow); border-color: var(--accent); }
-    .plan-carrier { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 6px; }
-    .plan-name { font-weight: 700; font-size: 16px; margin-bottom: 10px; }
-    .plan-details { display: flex; gap: 20px; flex-wrap: wrap; }
-    .plan-detail { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+    
+    /* Left Panel */
+    .explorer-panel {
+      width: 40%;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .filters {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    
+    .filter-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    
+    .filter-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    
+    .filter-select, .search-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+    
+    .filter-select:focus, .search-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .plans-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    
+    .plan-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .plan-card:hover {
+      transform: translateX(4px);
+      border-color: var(--accent);
+    }
+    
+    .plan-card.selected {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+    }
+    
+    .plan-carrier {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    
+    .plan-name {
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    
+    .plan-details {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .plan-detail {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    
     .plan-detail i { width: 14px; color: var(--accent); }
     .plan-detail strong { color: var(--text-primary); }
-
-    /* RIGHT PANEL */
-    .assistant-panel { width: 60%; display: flex; flex-direction: column; background: var(--bg-primary); }
-    .chat-messages { flex: 1; overflow-y: auto; padding: 24px; }
-    .message { margin-bottom: 20px; display: flex; gap: 12px; animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Right Panel */
+    .assistant-panel {
+      width: 60%;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-primary);
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    
+    .message {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 12px;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
     .message.user { flex-direction: row-reverse; }
-    .avatar { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-    .message.ai .avatar { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); }
-    .message.user .avatar { background: var(--bg-card); border: 1px solid var(--border); }
-    .content { max-width: 75%; padding: 12px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; }
-    .message.ai .content { background: var(--bg-card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-    .message.user .content { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: white; border-bottom-right-radius: 4px; }
-
-    .suggestions { padding: 16px 24px; display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--bg-secondary); }
-    .suggestion { background: var(--bg-card); border: 1px solid var(--border); padding: 8px 16px; border-radius: 40px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
-    .suggestion:hover { background: var(--accent); border-color: var(--accent); color: white; transform: translateY(-2px); }
-
-    .chat-input-area { padding: 16px 24px; background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; gap: 12px; }
-    .chat-input { flex: 1; padding: 14px 20px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 40px; color: var(--text-primary); font-size: 14px; }
-    .chat-input:focus { outline: none; border-color: var(--accent); }
-    .send-btn { padding: 12px 28px; background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: white; border: none; border-radius: 40px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-    .send-btn:hover { transform: translateY(-2px); }
-
-    .status { padding: 10px 24px; font-size: 11px; color: var(--text-secondary); background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
-    .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
-    input, button, textarea, select { font-family: 'Inter', sans-serif; }
-
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg-primary); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* UPLOAD PANEL */
-    .upload-panel { margin: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-    .upload-header { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; font-weight: 600; }
-    .upload-header i.fa-file-pdf { color: var(--accent); margin-right: 8px; }
-    .toggle-icon { color: var(--text-secondary); transition: transform 0.2s; }
-    .upload-body { padding: 16px; display: none; border-top: 1px solid var(--border); }
+    
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    
+    .message.ai .avatar {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    }
+    
+    .message.user .avatar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+    }
+    
+    .content {
+      max-width: 75%;
+      padding: 12px 18px;
+      border-radius: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    
+    .message.ai .content {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    
+    .message.user .content {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    
+    .suggestions {
+      padding: 16px 24px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+    
+    .suggestion {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 40px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    
+    .suggestion:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    
+    .chat-input-area {
+      padding: 16px 24px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+    }
+    
+    .chat-input {
+      flex: 1;
+      padding: 14px 20px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .send-btn {
+      padding: 12px 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      border: none;
+      border-radius: 40px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .send-btn:hover {
+      transform: translateY(-2px);
+    }
+    
+    .status {
+      padding: 10px 24px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .main-container {
+      display: flex;
+      height: calc(100vh - 72px);
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+    
+    input, button, textarea {
+      font-family: 'Inter', sans-serif;
+    }
+    
+    /* Upload Panel & Scanner Panel CSS (reused) */
+    .upload-panel {
+      margin: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .upload-header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .upload-header i { color: var(--accent); margin-right: 8px; }
+    .upload-header .toggle-icon { color: var(--text-secondary); transition: transform 0.2s; }
+    .upload-body { padding: 16px; display: none; }
     .upload-body.open { display: block; }
-    .up-input { width: 100%; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px; color: var(--text-primary); font-size: 13px; margin-bottom: 10px; }
-    .up-input:focus { outline: none; border-color: var(--accent); }
-    .file-drop-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; color: var(--text-secondary); font-size: 13px; }
-    .file-drop-zone:hover, .file-drop-zone.drag-over { border-color: var(--accent); background: var(--accent-glow); color: var(--text-primary); }
+    .upload-input {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+    .upload-select {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+    .file-drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .file-drop-zone:hover, .file-drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      color: var(--text-primary);
+    }
     .file-drop-zone i { font-size: 24px; margin-bottom: 8px; display: block; color: var(--accent); }
     .file-drop-zone input[type="file"] { display: none; }
-    .upload-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .upload-btn:hover { opacity: 0.9; transform: translateY(-1px); }
-    .upload-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    .upload-progress { margin-top: 10px; font-size: 12px; color: var(--text-secondary); display: none; align-items: center; gap: 8px; }
-    .upload-progress.active { display: flex; }
-    .progress-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
-    .progress-bar { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.3s; }
-    .upload-result { margin-top: 10px; padding: 10px 14px; border-radius: 10px; font-size: 12px; display: none; }
-    .upload-result.success { background: rgba(34,197,94,0.1); border: 1px solid #22c55e; color: #22c55e; display: block; }
-    .upload-result.error { background: rgba(239,68,68,0.1); border: 1px solid #ef4444; color: #ef4444; display: block; }
+    .upload-btn {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .upload-progress {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: none;
+    }
+    .upload-progress.active { display: flex; align-items: center; gap: 8px; }
+    .progress-bar-wrap {
+      flex: 1; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .upload-result {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      display: none;
+    }
+    .upload-result.success { background: rgba(34,197,94,0.1); border: 1px solid #22c55e; color: #22c55e; }
+    .upload-result.error   { background: rgba(239,68,68,0.1); border: 1px solid #ef4444; color: #ef4444; }
     .ingested-list { margin-top: 12px; }
     .ingested-list-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 8px; }
-    .ingested-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: var(--bg-primary); border-radius: 8px; margin-bottom: 6px; font-size: 12px; }
+    .ingested-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 10px;
+      background: var(--bg-primary);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
     .ingested-item-name { font-weight: 600; color: var(--text-primary); }
     .ingested-item-meta { color: var(--text-secondary); font-size: 11px; }
-    .doc-type-badge { padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .badge-formulary          { background: rgba(59,130,246,0.15);  color: #60a5fa; }
-    .badge-provider_directory { background: rgba(168,85,247,0.15);  color: #c084fc; }
-    .badge-plan_benefits      { background: rgba(34,197,94,0.15);   color: #4ade80; }
-    .badge-summary_of_benefits{ background: rgba(251,146,60,0.15);  color: #fb923c; }
-    .badge-otc_benefits       { background: rgba(34,197,94,0.15);   color: #4ade80; }
-    .badge-dental_vision      { background: rgba(236,72,153,0.15);  color: #f472b6; }
-    .badge-prior_authorization{ background: rgba(251,191,36,0.15);  color: #fbbf24; }
+    .doc-type-badge {
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-formulary         { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .badge-provider_directory{ background: rgba(168,85,247,0.15); color: #c084fc; }
+    .badge-plan_benefits     { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .badge-summary_of_benefits{ background: rgba(251,146,60,0.15); color: #fb923c; }
   </style>
 </head>
 <body class="light">
-
   <div class="header">
     <div class="header-content">
       <div class="logo">
@@ -146,43 +548,49 @@
   </div>
 
   <div class="stats-bar">
-    <div class="stat"><i class="fas fa-chart-line"></i><span class="stat-value" id="planCount">0</span><span class="stat-label">Plans Available</span></div>
-    <div class="stat"><i class="fas fa-building"></i><span class="stat-value" id="carrierCount">0</span><span class="stat-label">Carriers</span></div>
-    <div class="stat"><i class="fas fa-robot"></i><span class="stat-value">AI Ready</span><span class="stat-label">24/7</span></div>
+    <div class="stat">
+      <i class="fas fa-chart-line"></i>
+      <span class="stat-value" id="planCount">0</span>
+      <span class="stat-label">Plans Available</span>
+    </div>
+    <div class="stat">
+      <i class="fas fa-building"></i>
+      <span class="stat-value" id="carrierCount">0</span>
+      <span class="stat-label">Carriers</span>
+    </div>
+    <div class="stat">
+      <i class="fas fa-robot"></i>
+      <span class="stat-value">AI Ready</span>
+      <span class="stat-label">24/7</span>
+    </div>
   </div>
 
   <div class="main-container">
-
     <!-- LEFT: Plan Explorer -->
     <div class="explorer-panel">
 
-      <!-- Add Plan Manually -->
-      <div style="margin:16px; padding:16px; background:var(--bg-card); border-radius:16px; border:1px solid var(--border);">
-        <div style="font-size:13px; font-weight:600; margin-bottom:12px;"><i class="fas fa-plus-circle" style="color:var(--accent);"></i> Add Plan Manually</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <input type="text" id="manualCarrier" placeholder="Carrier" style="flex:1; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
-          <input type="text" id="manualPlanName" placeholder="Plan Name" style="flex:2; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
-          <input type="number" id="manualPremium" placeholder="Premium $" style="width:100px; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
-          <input type="number" id="manualMoop" placeholder="MOOP $" style="width:100px; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
-          <button id="addPlanBtn" style="padding:8px 16px; background:var(--accent); border:none; border-radius:8px; color:white; cursor:pointer;">Add</button>
+      <!-- Manual Add Plan Form -->
+      <div style="margin: 16px; padding: 16px; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border);">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Add Plan Manually</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="manualCarrier" placeholder="Carrier" style="flex: 1; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+          <input type="text" id="manualPlanName" placeholder="Plan Name" style="flex: 2; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+          <input type="number" id="manualPremium" placeholder="Premium $" style="width: 100px; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+          <input type="number" id="manualMoop" placeholder="MOOP $" style="width: 100px; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+          <button id="addPlanBtn" style="padding: 8px 16px; background: var(--accent); border: none; border-radius: 8px; color: white; cursor: pointer;">Add</button>
         </div>
-        <div id="addPlanMessage" style="font-size:11px; margin-top:8px; color:var(--text-secondary);"></div>
+        <div id="addPlanMessage" style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);"></div>
       </div>
 
-      <!-- Upload Plan Documents -->
+      <!-- Upload Panel (existing) -->
       <div class="upload-panel">
         <div class="upload-header" onclick="toggleUploadPanel()">
           <span><i class="fas fa-file-pdf"></i> Upload Plan Documents</span>
           <i class="fas fa-chevron-down toggle-icon" id="uploadToggleIcon"></i>
         </div>
         <div class="upload-body" id="uploadBody">
-
-          <!-- 1. Plan Name -->
-          <input type="text" id="uploadPlanName" class="up-input"
-            placeholder="Plan name (e.g. Humana Gold Plus HMO)">
-
-          <!-- 2. Doc Type -->
-          <select id="uploadDocType" class="up-input">
+          <input type="text" id="uploadPlanName" class="upload-input" placeholder="Plan name (e.g. Humana Gold Plus HMO)" oninput="checkUploadReady()">
+          <select id="uploadDocType" class="upload-select" onchange="checkUploadReady()">
             <option value="">— Select document type —</option>
             <option value="formulary">💊 Formulary (Drug List)</option>
             <option value="provider_directory">🏥 Provider Directory</option>
@@ -192,40 +600,61 @@
             <option value="dental_vision">🦷 Dental / Vision / Hearing</option>
             <option value="prior_authorization">📝 Prior Authorization List</option>
           </select>
-
-          <!-- 3. File -->
-          <div class="file-drop-zone" id="dropZone"
-            onclick="document.getElementById('pdfFileInput').click()"
-            ondragover="handleDragOver(event)"
-            ondragleave="handleDragLeave(event)"
-            ondrop="handleDrop(event)">
+          <div class="file-drop-zone" id="dropZone" onclick="document.getElementById('pdfFileInput').click()"
+               ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
             <i class="fas fa-cloud-upload-alt"></i>
             <span id="dropZoneLabel">Drop PDF here or click to browse</span>
             <input type="file" id="pdfFileInput" accept=".pdf,.zip" onchange="handleFileSelect(event)">
           </div>
-
-          <!-- Upload Button -->
           <button class="upload-btn" id="uploadBtn" onclick="uploadDocument()" disabled>
             <i class="fas fa-upload"></i> Upload & Index Document
           </button>
-
-          <!-- Progress + Result -->
           <div class="upload-progress" id="uploadProgress">
-            <span>Processing PDF...</span>
+            <span id="uploadProgressText">Processing...</span>
             <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
           </div>
           <div class="upload-result" id="uploadResult"></div>
-
-          <!-- Indexed Docs -->
           <div class="ingested-list" id="ingestedList"></div>
         </div>
       </div>
 
-      <!-- Filter Plans -->
+      <!-- Smart Document Scanner (new) -->
+      <div class="upload-panel" style="margin-top: 16px;">
+        <div class="upload-header" onclick="toggleScannerPanel()">
+          <span><i class="fas fa-magic"></i> Smart Document Scanner</span>
+          <i class="fas fa-chevron-down toggle-icon" id="scannerToggleIcon"></i>
+        </div>
+        <div class="upload-body" id="scannerBody">
+          <input type="text" id="scanPlanName" class="upload-input" placeholder="Plan name (e.g. Alignment SmartSavings HMO-POS)">
+          <select id="scanDocType" class="upload-select">
+            <option value="">— Select document type —</option>
+            <option value="summary_of_benefits">Summary of Benefits</option>
+            <option value="formulary">Formulary (Drug List)</option>
+            <option value="otc_benefits">OTC Benefits Catalog</option>
+            <option value="provider_directory">Provider Directory</option>
+            <option value="plan_benefits">Plan Benefits</option>
+          </select>
+          <div class="file-drop-zone" id="scanDropZone" onclick="document.getElementById('scanFileInput').click()"
+               ondragover="handleScanDragOver(event)" ondragleave="handleScanDragLeave(event)" ondrop="handleScanDrop(event)">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <span id="scanDropLabel">Drop PDF here or click to browse</span>
+            <input type="file" id="scanFileInput" accept=".pdf" style="display:none">
+          </div>
+          <button class="upload-btn" id="scanBtn" onclick="startScan()" disabled>Scan Document</button>
+          <div id="scanProgress" style="display:none; margin-top:12px; font-size:12px; color:var(--accent);">
+            <i class="fas fa-spinner fa-pulse"></i> Scanning... (may take 20-30 seconds)
+          </div>
+          <div id="scanResult" style="margin-top:16px; display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Filters & Plans List -->
       <div class="filters">
         <div class="filter-title"><i class="fas fa-sliders-h"></i> Filter Plans</div>
         <div class="filter-group">
-          <select id="carrierFilter" class="filter-select"><option value="">All Carriers</option></select>
+          <select id="carrierFilter" class="filter-select">
+            <option value="">All Carriers</option>
+          </select>
           <select id="sortBy" class="filter-select">
             <option value="premium">Sort: Premium (Lowest)</option>
             <option value="moop">Sort: MOOP (Lowest)</option>
@@ -234,7 +663,6 @@
         </div>
         <input type="text" id="searchPlans" class="search-input" placeholder="🔍 Search plans by name or carrier...">
       </div>
-
       <div id="plansList" class="plans-list">
         <div class="loading">Loading plans...</div>
       </div>
@@ -248,159 +676,197 @@
           <div class="content">
             <strong>MERIDIAN AI</strong><br>
             👋 Welcome! I can answer questions about any Medicare plan once you upload its documents.<br><br>
-            <strong>To get started:</strong> Expand the <em>Upload Plan Documents</em> panel on the left, enter the plan name, select the document type, and drop in the PDF.
+            Use the panels on the left to upload and index documents, then ask me anything.
           </div>
         </div>
       </div>
-
       <div class="suggestions">
         <div class="suggestion" onclick="askQuestion('Which plans have giveback?')"><i class="fas fa-dollar-sign"></i> Giveback plans</div>
         <div class="suggestion" onclick="askQuestion('Show me lowest MOOP plans')"><i class="fas fa-chart-line"></i> Lowest MOOP</div>
         <div class="suggestion" onclick="askQuestion('What dental benefits are available?')"><i class="fas fa-tooth"></i> Dental benefits</div>
-        <div class="suggestion" onclick="askQuestion('What plans do you have documents for?')"><i class="fas fa-database"></i> Indexed plans</div>
+        <div class="suggestion" onclick="askQuestion('Compare plans side by side')"><i class="fas fa-balance-scale"></i> Compare plans</div>
       </div>
-
       <div class="chat-input-area">
-        <input type="text" id="chatInput" class="chat-input"
-          placeholder="Ask me anything about Medicare plans..."
-          onkeypress="if(event.key==='Enter') sendMessage()">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Ask me anything about Medicare plans..." onkeypress="if(event.key==='Enter') sendMessage()">
         <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
       </div>
-
       <div class="status">
         <div class="status-dot"></div>
-        <span id="statusText">Ready • Upload documents to enable AI answers</span>
+        <span id="statusText">Ready • Use scanner or upload panel to index documents</span>
       </div>
     </div>
   </div>
 
   <script>
-    // ── Theme ────────────────────────────────────────────────────────────────
+    // ========== THEME & GLOBALS ==========
     let userId = localStorage.getItem('meridian_user_id');
-    if (!userId) { userId = 'user_' + Math.random().toString(36).substr(2,9); localStorage.setItem('meridian_user_id', userId); }
+    if (!userId) {
+      userId = 'user_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('meridian_user_id', userId);
+    }
+    let currentSelectedPlan = null;
+    let allPlans = [];
 
     function toggleTheme() {
-      const isDark = document.body.classList.contains('dark');
-      document.body.classList.toggle('dark', !isDark);
-      document.body.classList.toggle('light', isDark);
-      localStorage.setItem('theme', isDark ? 'light' : 'dark');
+      if (document.body.classList.contains('light')) {
+        document.body.classList.remove('light');
+        document.body.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.body.classList.remove('dark');
+        document.body.classList.add('light');
+        localStorage.setItem('theme', 'light');
+      }
     }
-    if (localStorage.getItem('theme') === 'dark') { document.body.classList.replace('light','dark'); }
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.remove('light');
+      document.body.classList.add('dark');
+    }
 
-    // ── Plans ────────────────────────────────────────────────────────────────
-    let currentSelectedPlan = null, allPlans = [];
-
+    // ========== LOAD PLANS ==========
     async function loadPlans() {
       try {
-        const data = await fetch('/api/plans').then(r => r.json());
+        const response = await fetch('/api/plans');
+        const data = await response.json();
         allPlans = data.plans || [];
         document.getElementById('planCount').textContent = allPlans.length;
-        const carriers = [...new Set(allPlans.map(p => p.carrier).filter(Boolean))];
-        document.getElementById('carrierCount').textContent = carriers.length;
-        const sel = document.getElementById('carrierFilter');
-        sel.innerHTML = '<option value="">All Carriers</option>';
-        carriers.forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
+        const uniqueCarriers = [...new Set(allPlans.map(p => p.carrier).filter(Boolean))];
+        document.getElementById('carrierCount').textContent = uniqueCarriers.length;
+        const carrierSelect = document.getElementById('carrierFilter');
+        carrierSelect.innerHTML = '<option value="">All Carriers</option>';
+        uniqueCarriers.forEach(carrier => {
+          carrierSelect.innerHTML += `<option value="${carrier}">${carrier}</option>`;
+        });
         renderPlans();
-      } catch {
-        document.getElementById('plansList').innerHTML = '<div class="loading">No plans yet. Add one above!</div>';
+      } catch (error) {
+        document.getElementById('plansList').innerHTML = '<div class="loading">No plans yet. Add your first plan using the form above!</div>';
       }
     }
 
     function renderPlans() {
-      const cf = document.getElementById('carrierFilter').value;
-      const q  = document.getElementById('searchPlans').value.toLowerCase();
-      const sb = document.getElementById('sortBy').value;
-      let filtered = allPlans.filter(p => {
-        if (cf && p.carrier !== cf) return false;
-        if (q && !p.plan_name?.toLowerCase().includes(q) && !p.carrier?.toLowerCase().includes(q)) return false;
+      const carrierFilter = document.getElementById('carrierFilter').value;
+      const searchTerm = document.getElementById('searchPlans').value.toLowerCase();
+      const sortBy = document.getElementById('sortBy').value;
+      let filtered = allPlans.filter(plan => {
+        if (carrierFilter && plan.carrier !== carrierFilter) return false;
+        if (searchTerm && !plan.plan_name?.toLowerCase().includes(searchTerm) && !plan.carrier?.toLowerCase().includes(searchTerm)) return false;
         return true;
       });
-      if (sb === 'premium') filtered.sort((a,b) => (a.premium||9999)-(b.premium||9999));
-      if (sb === 'moop')    filtered.sort((a,b) => (a.moop||99999)-(b.moop||99999));
-      if (sb === 'giveback')filtered.sort((a,b) => (b.giveback||0)-(a.giveback||0));
-      const c = document.getElementById('plansList');
-      if (!filtered.length) { c.innerHTML = '<div class="loading">No plans match filters</div>'; return; }
-      c.innerHTML = filtered.map(p => `
-        <div class="plan-card ${currentSelectedPlan?.id===p.id?'selected':''}" onclick='selectPlan(${JSON.stringify(p)})'>
-          <div class="plan-carrier"><i class="fas fa-building"></i> ${p.carrier||'Unknown'}</div>
-          <div class="plan-name">${p.plan_name||'Plan'}</div>
+      if (sortBy === 'premium') filtered.sort((a,b) => (a.premium || 9999) - (b.premium || 9999));
+      if (sortBy === 'moop') filtered.sort((a,b) => (a.moop || 99999) - (b.moop || 99999));
+      if (sortBy === 'giveback') filtered.sort((a,b) => (b.giveback || 0) - (a.giveback || 0));
+      const container = document.getElementById('plansList');
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="loading">No plans match your filters</div>';
+        return;
+      }
+      container.innerHTML = filtered.map(plan => `
+        <div class="plan-card ${currentSelectedPlan?.id === plan.id ? 'selected' : ''}" onclick='selectPlan(${JSON.stringify(plan)})'>
+          <div class="plan-carrier"><i class="fas fa-building"></i> ${plan.carrier || 'Unknown'}</div>
+          <div class="plan-name">${plan.plan_name || 'Plan'}</div>
           <div class="plan-details">
-            <div class="plan-detail"><i class="fas fa-dollar-sign"></i><strong>$${p.premium||0}</strong>/mo</div>
-            <div class="plan-detail"><i class="fas fa-shield-alt"></i>MOOP <strong>$${p.moop||'N/A'}</strong></div>
-            ${p.giveback?`<div class="plan-detail"><i class="fas fa-gift"></i>Giveback <strong>$${p.giveback}</strong>/mo</div>`:''}
+            <div class="plan-detail"><i class="fas fa-dollar-sign"></i> <strong>$${plan.premium || 0}</strong>/mo</div>
+            <div class="plan-detail"><i class="fas fa-shield-alt"></i> MOOP <strong>$${plan.moop || 'N/A'}</strong></div>
+            ${plan.giveback ? `<div class="plan-detail"><i class="fas fa-gift"></i> Giveback <strong>$${plan.giveback}</strong>/mo</div>` : ''}
           </div>
-        </div>`).join('');
+        </div>
+      `).join('');
     }
 
     function selectPlan(plan) {
       currentSelectedPlan = plan;
       renderPlans();
-      document.getElementById('statusText').textContent = `Selected: ${plan.carrier} ${plan.plan_name}`;
-      addAIMessage(`✨ Looking at **${plan.carrier} – ${plan.plan_name}**\n\n💰 Premium: $${plan.premium}/mo  |  🛡️ MOOP: $${plan.moop}\n\nWhat would you like to know?`);
+      document.getElementById('statusText').innerHTML = `Selected: ${plan.carrier} ${plan.plan_name}`;
+      addAIMessage(`✨ I'm looking at **${plan.carrier} ${plan.plan_name}**.\n\n💰 Premium: **$${plan.premium}/mo**\n🛡️ MOOP: **$${plan.moop}**\n\nWhat would you like to know about this plan?`);
     }
 
-    // ── Chat ─────────────────────────────────────────────────────────────────
+    // ========== CHAT ==========
     async function sendMessage() {
       const input = document.getElementById('chatInput');
-      const msg = input.value.trim();
-      if (!msg) return;
+      const message = input.value.trim();
+      if (!message) return;
       input.value = '';
-      addUserMessage(msg);
-      document.getElementById('statusText').textContent = 'Thinking...';
-      const fullMsg = currentSelectedPlan ? `[Viewing: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}] ${msg}` : msg;
+      addUserMessage(message);
+      let fullMessage = message;
+      if (currentSelectedPlan) {
+        fullMessage = `[Currently viewing: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}] ${message}`;
+      }
+      document.getElementById('statusText').innerHTML = 'Thinking...';
       try {
-        const data = await fetch('/api/chat', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ userId, message: fullMsg })
-        }).then(r => r.json());
-        addAIMessage(data.reply || 'No response');
-        document.getElementById('statusText').textContent = currentSelectedPlan ? `Selected: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}` : 'Ready';
-      } catch {
-        addAIMessage("Connection error. Please try again.");
-        document.getElementById('statusText').textContent = 'Error';
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, message: fullMessage })
+        });
+        const data = await response.json();
+        addAIMessage(data.reply);
+        document.getElementById('statusText').innerHTML = currentSelectedPlan ? `Selected: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}` : 'Ready';
+      } catch (error) {
+        addAIMessage("I'm having trouble connecting. Please try again.");
+        document.getElementById('statusText').innerHTML = 'Connection error';
       }
     }
 
-    function askQuestion(q) { document.getElementById('chatInput').value = q; sendMessage(); }
+    function askQuestion(question) {
+      document.getElementById('chatInput').value = question;
+      sendMessage();
+    }
 
     function addUserMessage(text) {
-      const c = document.getElementById('chatMessages');
-      c.innerHTML += `<div class="message user"><div class="avatar"><i class="fas fa-user"></i></div><div class="content">${escapeHtml(text)}</div></div>`;
-      c.scrollTop = c.scrollHeight;
+      const container = document.getElementById('chatMessages');
+      container.innerHTML += `<div class="message user"><div class="avatar"><i class="fas fa-user"></i></div><div class="content">${escapeHtml(text)}</div></div>`;
+      container.scrollTop = container.scrollHeight;
     }
-    function addAIMessage(text) {
-      const c = document.getElementById('chatMessages');
-      c.innerHTML += `<div class="message ai"><div class="avatar"><i class="fas fa-robot"></i></div><div class="content">${escapeHtml(text).replace(/\n/g,'<br>')}</div></div>`;
-      c.scrollTop = c.scrollHeight;
-    }
-    function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-    // ── Manual Add Plan ───────────────────────────────────────────────────────
+    function addAIMessage(text) {
+      const container = document.getElementById('chatMessages');
+      container.innerHTML += `<div class="message ai"><div class="avatar"><i class="fas fa-robot"></i></div><div class="content">${escapeHtml(text).replace(/\n/g, '<br>')}</div></div>`;
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ========== MANUAL ADD PLAN ==========
     document.getElementById('addPlanBtn').addEventListener('click', async () => {
-      const carrier   = document.getElementById('manualCarrier').value.trim();
+      const carrier = document.getElementById('manualCarrier').value.trim();
       const plan_name = document.getElementById('manualPlanName').value.trim();
-      const premium   = parseFloat(document.getElementById('manualPremium').value) || 0;
-      const moop      = parseFloat(document.getElementById('manualMoop').value) || null;
-      const msg       = document.getElementById('addPlanMessage');
-      if (!carrier || !plan_name) { msg.innerHTML = '<span style="color:#ef4444;">Carrier and Plan Name required</span>'; return; }
-      msg.innerHTML = '<span style="color:var(--accent);">Adding...</span>';
+      const premium = parseFloat(document.getElementById('manualPremium').value) || 0;
+      const moop = parseFloat(document.getElementById('manualMoop').value) || null;
+      if (!carrier || !plan_name) {
+        document.getElementById('addPlanMessage').innerHTML = '<span style="color: #ef4444;">Carrier and Plan Name required</span>';
+        return;
+      }
+      document.getElementById('addPlanMessage').innerHTML = '<span style="color: var(--accent);">Adding...</span>';
       try {
-        const r = await fetch('/api/upload/add-plan', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ carrier, plan_name, premium, giveback:0, moop })
-        }).then(r => r.json());
-        if (r.success) {
-          msg.innerHTML = '<span style="color:#22c55e;">✅ Plan added!</span>';
-          ['manualCarrier','manualPlanName','manualPremium','manualMoop'].forEach(id => document.getElementById(id).value = '');
+        const response = await fetch('/api/upload/add-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ carrier, plan_name, premium, giveback: 0, moop })
+        });
+        const result = await response.json();
+        if (result.success) {
+          document.getElementById('addPlanMessage').innerHTML = '<span style="color: #22c55e;">✅ Plan added!</span>';
+          document.getElementById('manualCarrier').value = '';
+          document.getElementById('manualPlanName').value = '';
+          document.getElementById('manualPremium').value = '';
+          document.getElementById('manualMoop').value = '';
           loadPlans();
-          setTimeout(() => msg.innerHTML = '', 2000);
-        } else { msg.innerHTML = `<span style="color:#ef4444;">❌ ${r.error}</span>`; }
-      } catch { msg.innerHTML = '<span style="color:#ef4444;">❌ Error</span>'; }
+          setTimeout(() => { document.getElementById('addPlanMessage').innerHTML = ''; }, 2000);
+        } else {
+          document.getElementById('addPlanMessage').innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span>`;
+        }
+      } catch (error) {
+        document.getElementById('addPlanMessage').innerHTML = '<span style="color: #ef4444;">❌ Error adding plan</span>';
+      }
     });
 
-    // ── Upload Panel ──────────────────────────────────────────────────────────
+    // ========== UPLOAD PANEL (file upload & ingest) ==========
     let selectedFile = null;
-
     function toggleUploadPanel() {
       const body = document.getElementById('uploadBody');
       const icon = document.getElementById('uploadToggleIcon');
@@ -408,72 +874,73 @@
       icon.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
       if (body.classList.contains('open')) loadIngestedDocs();
     }
-
     function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
-    function handleDragLeave() { document.getElementById('dropZone').classList.remove('drag-over'); }
+    function handleDragLeave(e) { document.getElementById('dropZone').classList.remove('drag-over'); }
     function handleDrop(e) {
       e.preventDefault();
       document.getElementById('dropZone').classList.remove('drag-over');
-      const f = e.dataTransfer.files[0];
-      if (f) setSelectedFile(f);
+      const file = e.dataTransfer.files[0];
+      if (file) setSelectedFile(file);
     }
-    function handleFileSelect(e) { if (e.target.files[0]) setSelectedFile(e.target.files[0]); }
-    function setSelectedFile(f) {
-      selectedFile = f;
-      document.getElementById('dropZoneLabel').textContent = `📎 ${f.name} (${(f.size/1024/1024).toFixed(1)} MB)`;
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) setSelectedFile(file);
+    }
+    function setSelectedFile(file) {
+      selectedFile = file;
+      document.getElementById('dropZoneLabel').textContent = `📎 ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`;
       checkUploadReady();
     }
     function checkUploadReady() {
-      const ok = selectedFile && document.getElementById('uploadPlanName').value.trim() && document.getElementById('uploadDocType').value;
-      document.getElementById('uploadBtn').disabled = !ok;
+      const planName = document.getElementById('uploadPlanName').value.trim();
+      const docType = document.getElementById('uploadDocType').value;
+      document.getElementById('uploadBtn').disabled = !(selectedFile && planName && docType);
     }
     document.getElementById('uploadPlanName').addEventListener('input', checkUploadReady);
     document.getElementById('uploadDocType').addEventListener('change', checkUploadReady);
 
     async function uploadDocument() {
       const planName = document.getElementById('uploadPlanName').value.trim();
-      const docType  = document.getElementById('uploadDocType').value;
+      const docType = document.getElementById('uploadDocType').value;
       if (!selectedFile || !planName || !docType) return;
-
       const btn = document.getElementById('uploadBtn');
-      const prog = document.getElementById('uploadProgress');
-      const bar  = document.getElementById('progressBar');
-      const res  = document.getElementById('uploadResult');
-
+      const progress = document.getElementById('uploadProgress');
+      const bar = document.getElementById('progressBar');
+      const result = document.getElementById('uploadResult');
       btn.disabled = true;
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-      prog.classList.add('active');
-      res.className = 'upload-result';
-
+      progress.classList.add('active');
+      result.style.display = 'none';
       let pct = 0;
-      const ticker = setInterval(() => { pct = Math.min(pct+2, 85); bar.style.width = pct+'%'; }, 400);
-
+      const ticker = setInterval(() => { pct = Math.min(pct + 3, 85); bar.style.width = pct + '%'; }, 300);
       try {
-        const fd = new FormData();
-        fd.append('file', selectedFile);
-        fd.append('plan_name', planName);
-        fd.append('doc_type', docType);
-
-        const data = await fetch('/api/ingest', { method:'POST', body:fd }).then(r => r.json());
-        clearInterval(ticker); bar.style.width = '100%';
-
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('plan_name', planName);
+        formData.append('doc_type', docType);
+        const response = await fetch('/api/upload/ingest', { method: 'POST', body: formData });
+        const data = await response.json();
+        clearInterval(ticker);
+        bar.style.width = '100%';
         if (data.success) {
-          res.className = 'upload-result success';
-          res.textContent = `✅ ${data.message}`;
+          result.className = 'upload-result success';
+          result.style.display = 'block';
+          result.innerHTML = `✅ ${data.message}`;
           selectedFile = null;
           document.getElementById('pdfFileInput').value = '';
           document.getElementById('dropZoneLabel').textContent = 'Drop PDF here or click to browse';
           document.getElementById('uploadPlanName').value = '';
           document.getElementById('uploadDocType').value = '';
-          btn.disabled = true;
+          document.getElementById('uploadBtn').disabled = true;
           loadIngestedDocs();
-        } else { throw new Error(data.error || 'Upload failed'); }
-      } catch(err) {
+        } else throw new Error(data.error || 'Upload failed');
+      } catch (err) {
         clearInterval(ticker);
-        res.className = 'upload-result error';
-        res.textContent = `❌ ${err.message}`;
+        result.className = 'upload-result error';
+        result.style.display = 'block';
+        result.innerHTML = `❌ ${err.message}`;
       } finally {
-        prog.classList.remove('active');
+        progress.classList.remove('active');
         bar.style.width = '0%';
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Index Document';
@@ -482,30 +949,133 @@
 
     async function loadIngestedDocs() {
       try {
-        const data = await fetch('/api/upload/status').then(r => r.json());
+        const res = await fetch('/api/upload/status');
+        const data = await res.json();
         const list = document.getElementById('ingestedList');
-        if (!data.indexed_chunks?.length) {
-          list.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:8px 0;">No documents indexed yet</div>';
+        if (!data.indexed_chunks || data.indexed_chunks.length === 0) {
+          list.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:8px;">No documents indexed yet</div>';
           return;
         }
-        const badge = { formulary:'badge-formulary', provider_directory:'badge-provider_directory', plan_benefits:'badge-plan_benefits', summary_of_benefits:'badge-summary_of_benefits', otc_benefits:'badge-otc_benefits', dental_vision:'badge-dental_vision', prior_authorization:'badge-prior_authorization' };
-        list.innerHTML = `<div class="ingested-list-title"><i class="fas fa-database"></i> Indexed Documents</div>` +
-          data.indexed_chunks.map(d => `
+        const badgeClass = {
+          formulary: 'badge-formulary',
+          provider_directory: 'badge-provider_directory',
+          plan_benefits: 'badge-plan_benefits',
+          summary_of_benefits: 'badge-summary_of_benefits'
+        };
+        list.innerHTML = `<div class="ingested-list-title"><i class="fas fa-database"></i> Indexed Documents</div>
+          ${data.indexed_chunks.map(d => `
             <div class="ingested-item">
-              <div>
-                <div class="ingested-item-name">${d.plan_name}</div>
-                <div class="ingested-item-meta">${d.chunks} chunks</div>
-              </div>
-              <span class="doc-type-badge ${badge[d.doc_type]||''}">${d.doc_type?.replace(/_/g,' ')}</span>
-            </div>`).join('');
+              <div><div class="ingested-item-name">${d.plan_name}</div><div class="ingested-item-meta">${d.chunks} chunks indexed</div></div>
+              <span class="doc-type-badge ${badgeClass[d.doc_type] || ''}">${d.doc_type?.replace(/_/g,' ')}</span>
+            </div>
+          `).join('')}`;
       } catch(e) { console.error(e); }
     }
 
-    // ── Filters ───────────────────────────────────────────────────────────────
+    // ========== SMART SCANNER (Groq) ==========
+    let scanSelectedFile = null;
+    function toggleScannerPanel() {
+      const body = document.getElementById('scannerBody');
+      const icon = document.getElementById('scannerToggleIcon');
+      body.classList.toggle('open');
+      icon.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+    }
+    function handleScanDragOver(e) { e.preventDefault(); document.getElementById('scanDropZone').classList.add('drag-over'); }
+    function handleScanDragLeave(e) { document.getElementById('scanDropZone').classList.remove('drag-over'); }
+    function handleScanDrop(e) {
+      e.preventDefault();
+      document.getElementById('scanDropZone').classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') setScanFile(file);
+    }
+    document.getElementById('scanFileInput').addEventListener('change', (e) => {
+      if (e.target.files[0]) setScanFile(e.target.files[0]);
+    });
+    function setScanFile(file) {
+      scanSelectedFile = file;
+      document.getElementById('scanDropLabel').textContent = `📎 ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`;
+      document.getElementById('scanBtn').disabled = false;
+    }
+    function checkScanReady() {
+      const plan = document.getElementById('scanPlanName').value.trim();
+      const docType = document.getElementById('scanDocType').value;
+      document.getElementById('scanBtn').disabled = !(scanSelectedFile && plan && docType);
+    }
+    document.getElementById('scanPlanName').addEventListener('input', checkScanReady);
+    document.getElementById('scanDocType').addEventListener('change', checkScanReady);
+
+    async function startScan() {
+      const planName = document.getElementById('scanPlanName').value.trim();
+      const docType = document.getElementById('scanDocType').value;
+      if (!scanSelectedFile || !planName || !docType) return;
+      const btn = document.getElementById('scanBtn');
+      const progress = document.getElementById('scanProgress');
+      const resultDiv = document.getElementById('scanResult');
+      btn.disabled = true;
+      progress.style.display = 'block';
+      resultDiv.style.display = 'none';
+      const formData = new FormData();
+      formData.append('file', scanSelectedFile);
+      formData.append('plan_name', planName);
+      formData.append('doc_type', docType);
+      try {
+        const response = await fetch('/api/scan-document', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        resultDiv.innerHTML = `
+          <div style="border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+            <div style="background:var(--accent-glow); padding:10px 16px; font-weight:600;">Extracted Data – Review before saving</div>
+            <pre style="margin:0; padding:16px; background:var(--bg-primary); overflow-x:auto; font-size:12px; max-height:300px;">${JSON.stringify(data.extracted, null, 2)}</pre>
+            <div style="padding:12px; display:flex; gap:8px; justify-content:flex-end;">
+              <button id="cancelScanResult" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); cursor:pointer;">Cancel</button>
+              <button id="saveScanResult" style="padding:6px 12px; border-radius:8px; background:var(--accent); color:white; border:none; cursor:pointer;">Save to Database</button>
+            </div>
+          </div>
+        `;
+        resultDiv.style.display = 'block';
+        progress.style.display = 'none';
+        document.getElementById('saveScanResult').onclick = async () => {
+          const saveBtn = document.getElementById('saveScanResult');
+          saveBtn.disabled = true;
+          saveBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Saving...';
+          try {
+            const ingestForm = new FormData();
+            ingestForm.append('file', scanSelectedFile);
+            ingestForm.append('plan_name', planName);
+            ingestForm.append('doc_type', docType);
+            const ingestResp = await fetch('/api/upload/ingest', { method: 'POST', body: ingestForm });
+            const ingestData = await ingestResp.json();
+            if (ingestData.success) {
+              resultDiv.innerHTML = `<div style="padding:16px; background:rgba(34,197,94,0.1); border-radius:12px; color:#22c55e; text-align:center;">✅ Saved! Document indexed and ready for queries.</div>`;
+              scanSelectedFile = null;
+              document.getElementById('scanDropLabel').textContent = 'Drop PDF here or click to browse';
+              document.getElementById('scanPlanName').value = '';
+              document.getElementById('scanDocType').value = '';
+              document.getElementById('scanBtn').disabled = true;
+              document.getElementById('scanFileInput').value = '';
+              loadIngestedDocs();
+            } else throw new Error(ingestData.error);
+          } catch (err) {
+            resultDiv.innerHTML = `<div style="padding:16px; background:rgba(239,68,68,0.1); border-radius:12px; color:#ef4444; text-align:center;">❌ Save failed: ${err.message}</div>`;
+          }
+          saveBtn.disabled = false;
+        };
+        document.getElementById('cancelScanResult').onclick = () => {
+          resultDiv.style.display = 'none';
+          btn.disabled = false;
+        };
+      } catch (err) {
+        progress.style.display = 'none';
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<div style="padding:16px; background:rgba(239,68,68,0.1); border-radius:12px; color:#ef4444; text-align:center;">❌ Scan failed: ${err.message}</div>`;
+        btn.disabled = false;
+      }
+    }
+
+    // ========== EVENT LISTENERS ==========
     document.getElementById('carrierFilter').addEventListener('change', renderPlans);
     document.getElementById('sortBy').addEventListener('change', renderPlans);
     document.getElementById('searchPlans').addEventListener('input', renderPlans);
-
     loadPlans();
   </script>
 </body>
