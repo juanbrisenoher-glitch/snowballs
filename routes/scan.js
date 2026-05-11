@@ -8,10 +8,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const GROQ_API_KEY = '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';
 
-// Prompts - even stricter
+// Prompts for structured extraction
 const PROMPTS = {
-  summary_of_benefits: `Extract ALL benefit information from this Medicare Advantage Summary of Benefits. Return ONLY valid JSON. No extra text, no markdown, no explanations. Use null for missing values.
-Required JSON structure:
+  summary_of_benefits: `Extract ALL benefit information from this Medicare Advantage Summary of Benefits text. Return ONLY valid JSON with these fields: 
 {
   "plan_name": "",
   "plan_type": "",
@@ -31,9 +30,10 @@ Required JSON structure:
   "otc_benefit": "",
   "telehealth": "",
   "notes": ""
-}`,
+}
+If a value is not found, use null. No extra text, no markdown.`,
 
-  formulary: `Extract drug formulary data. Return ONLY valid JSON:
+  formulary: `Extract drug formulary data from this Medicare Part D formulary text. Return ONLY valid JSON:
 {
   "plan_name": "",
   "tier1_copay": "",
@@ -41,30 +41,34 @@ Required JSON structure:
   "tier3_copay": "",
   "tier4_copay": "",
   "tier5_copay": "",
-  "drugs": []
-}`,
+  "drugs": [{"name": "", "tier": "", "quantity_limit": ""}]
+}
+Include at least the first 10 drugs. No extra text.`,
 
-  otc_benefits: `Extract OTC benefit information. Return ONLY valid JSON:
+  otc_benefits: `Extract OTC (Over‑the‑Counter) benefit information from this document. Return ONLY valid JSON:
 {
   "plan_name": "",
   "quarterly_allowance": "",
   "annual_allowance": "",
   "where_to_use": [],
   "categories": []
-}`,
+}
+No extra text.`,
 
   provider_directory: `Extract provider information. Return ONLY valid JSON:
 {
   "plan_name": "",
   "network_name": "",
-  "providers": []
-}`,
+  "providers": [{"name": "", "specialty": "", "address": "", "phone": ""}]
+}
+Include first 5 providers. No extra text.`,
 
   plan_benefits: `Extract plan benefits. Return ONLY valid JSON:
 {
   "plan_name": "",
   "benefits": {}
-}`
+}
+No extra text.`
 };
 
 router.post('/', upload.single('file'), async (req, res) => {
@@ -76,11 +80,12 @@ router.post('/', upload.single('file'), async (req, res) => {
 
     // Extract text from PDF
     const pdfData = await pdfParse(req.file.buffer);
-    const text = pdfData.text.slice(0, 20000); // limit to 20k chars
+    const text = pdfData.text.slice(0, 25000); // limit to 25k chars
 
-    const systemMsg = `You are a JSON extraction assistant. The user will provide PDF text. You must output ONLY valid JSON that matches the requested schema. No markdown, no backticks, no extra words. If a field is not present, use null or empty string.`;
+    const prompt = PROMPTS[doc_type];
+    const systemMsg = `You are a data extraction assistant. Return ONLY valid JSON. No explanations, no markdown, no backticks.`;
 
-    const userMsg = `Plan name: ${plan_name}\nDocument type: ${doc_type}\n\nPDF TEXT:\n${text}\n\nNow return JSON only.`;
+    const userMsg = `Plan name: ${plan_name}\nDocument type: ${doc_type}\n\nPDF TEXT:\n${text}\n\nNow return the JSON as instructed.`;
 
     const response = await new Promise((resolve, reject) => {
       const body = JSON.stringify({
@@ -119,33 +124,29 @@ router.post('/', upload.single('file'), async (req, res) => {
     });
 
     let raw = response.choices[0].message.content;
-    console.log('Raw Groq response:', raw);
-
-    // Clean up: remove any markdown code blocks
-    raw = raw.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
-    
-    // Try to extract a JSON object using regex
-    let match = raw.match(/(\{[\s\S]*\})/);
-    if (!match) {
-      throw new Error('No JSON object found in response');
-    }
-    let jsonString = match[1];
-    
-    // Attempt to parse
+    // Remove markdown code fences
+    let clean = raw.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
     let extracted;
+    let parseError = null;
     try {
-      extracted = JSON.parse(jsonString);
-    } catch (parseErr) {
-      console.error('JSON parse error:', parseErr.message);
-      // Fallback: return raw for debugging
-      return res.json({ 
-        success: false, 
-        error: 'Could not parse JSON from Groq response', 
-        raw: raw.substring(0, 1000) 
-      });
+      extracted = JSON.parse(clean);
+    } catch (e) {
+      // Try to find JSON object using regex
+      const match = clean.match(/(\{[\s\S]*\})/);
+      if (match) {
+        try {
+          extracted = JSON.parse(match[1]);
+        } catch (e2) {
+          parseError = e2.message;
+          extracted = { error: 'Could not parse JSON', raw_text: raw.substring(0, 2000) };
+        }
+      } else {
+        parseError = e.message;
+        extracted = { error: 'Could not parse JSON', raw_text: raw.substring(0, 2000) };
+      }
     }
 
-    res.json({ success: true, extracted });
+    res.json({ success: true, extracted, raw_text: raw, parse_error: parseError });
   } catch (err) {
     console.error('Scan error:', err);
     res.status(500).json({ error: err.message });
