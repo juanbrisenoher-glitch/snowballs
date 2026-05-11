@@ -411,7 +411,7 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 16px;
-      overflow: hidden;
+      overflow: visible;
     }
     .scanner-header {
       padding: 12px 16px;
@@ -422,6 +422,7 @@
       border-bottom: 1px solid var(--border);
       font-size: 13px;
       font-weight: 600;
+      background: var(--bg-card);
     }
     .scanner-header i { color: var(--accent); margin-right: 8px; }
     .scanner-header .toggle-icon { color: var(--text-secondary); transition: transform 0.2s; }
@@ -479,6 +480,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       overflow: hidden;
+      background: var(--bg-card);
     }
     .result-header {
       background: var(--accent-glow);
@@ -501,6 +503,7 @@
       gap: 8px;
       justify-content: flex-end;
       border-top: 1px solid var(--border);
+      background: var(--bg-card);
     }
     .result-actions button {
       padding: 6px 12px;
@@ -588,7 +591,7 @@
           <span><i class="fas fa-magic"></i> Smart Document Scanner</span>
           <i class="fas fa-chevron-down toggle-icon" id="scannerToggleIcon"></i>
         </div>
-        <div class="scanner-body" id="scannerBody">
+        <div class="scanner-body" id="scannerBody" style="display: block;">
           <input type="text" id="scanPlanName" class="scanner-input" placeholder="Plan name (e.g. Alignment SmartSavings HMO-POS)">
           <select id="scanDocType" class="scanner-select">
             <option value="">— Select document type —</option>
