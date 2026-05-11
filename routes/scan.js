@@ -6,7 +6,7 @@ const https = require('https');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Read API key from environment variable (set in Railway)
+// Use the API key from environment variables (set in Railway)
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 if (!GROQ_API_KEY) {
   console.error('❌ GROQ_API_KEY environment variable is not set!');
@@ -129,14 +129,12 @@ router.post('/', upload.single('file'), async (req, res) => {
     });
 
     let raw = response.choices[0].message.content;
-    // Remove markdown code fences
     let clean = raw.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
     let extracted;
     let parseError = null;
     try {
       extracted = JSON.parse(clean);
     } catch (e) {
-      // Try to find JSON object using regex
       const match = clean.match(/(\{[\s\S]*\})/);
       if (match) {
         try {
