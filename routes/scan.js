@@ -8,7 +8,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const GROQ_API_KEY = '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';
 
-// Prompts for structured extraction
 const PROMPTS = {
   summary_of_benefits: `Extract ALL benefit information from this Medicare Advantage Summary of Benefits text. Return ONLY valid JSON with these fields: 
 {
@@ -80,7 +79,7 @@ router.post('/', upload.single('file'), async (req, res) => {
 
     // Extract text from PDF
     const pdfData = await pdfParse(req.file.buffer);
-    const text = pdfData.text.slice(0, 25000); // limit to 25k chars
+    const text = pdfData.text.slice(0, 25000);
 
     const prompt = PROMPTS[doc_type];
     const systemMsg = `You are a data extraction assistant. Return ONLY valid JSON. No explanations, no markdown, no backticks.`;
