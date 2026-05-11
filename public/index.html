@@ -40,7 +40,6 @@
       background: var(--bg-primary);
       color: var(--text-primary);
     }
-    /* Header */
     .header {
       background: var(--header-bg);
       padding: 16px 32px;
@@ -79,7 +78,6 @@
       gap: 8px;
       transition: all 0.3s;
     }
-    /* Stats Bar */
     .stats-bar {
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
@@ -96,7 +94,12 @@
     .stat i { color: var(--accent); font-size: 14px; }
     .stat-value { font-weight: 600; color: var(--text-primary); }
     .stat-label { color: var(--text-secondary); }
-    /* Left Panel */
+    .main-container {
+      display: flex;
+      height: calc(100vh - 72px);
+      max-width: 1600px;
+      margin: 0 auto;
+    }
     .explorer-panel {
       width: 40%;
       background: var(--bg-secondary);
@@ -105,84 +108,6 @@
       flex-direction: column;
       overflow: hidden;
     }
-    .filters {
-      padding: 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-card);
-    }
-    .filter-title {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--accent);
-      margin-bottom: 16px;
-    }
-    .filter-group {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-    }
-    .filter-select, .search-input {
-      flex: 1;
-      padding: 10px 14px;
-      background: var(--bg-primary);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text-primary);
-      font-size: 13px;
-    }
-    .plans-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-    }
-    .plan-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 12px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .plan-card:hover {
-      transform: translateX(4px);
-      border-color: var(--accent);
-    }
-    .plan-card.selected {
-      background: var(--accent-glow);
-      border-color: var(--accent);
-    }
-    .plan-carrier {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--accent);
-      margin-bottom: 6px;
-    }
-    .plan-name {
-      font-weight: 700;
-      font-size: 16px;
-      margin-bottom: 10px;
-    }
-    .plan-details {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-    .plan-detail {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-    .plan-detail i { width: 14px; color: var(--accent); }
-    .plan-detail strong { color: var(--text-primary); }
-    /* Right Panel */
     .assistant-panel {
       width: 60%;
       display: flex;
@@ -318,38 +243,95 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
-    .main-container {
+    .filters {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    .filter-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    .filter-group {
       display: flex;
-      height: calc(100vh - 72px);
-      max-width: 1600px;
-      margin: 0 auto;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
     }
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
+    .filter-select, .search-input {
+      flex: 1;
+      padding: 10px 14px;
       background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 13px;
     }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 3px;
+    .plans-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
     }
+    .plan-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .plan-card:hover {
+      transform: translateX(4px);
+      border-color: var(--accent);
+    }
+    .plan-card.selected {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+    }
+    .plan-carrier {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .plan-name {
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    .plan-details {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .plan-detail {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .plan-detail i { width: 14px; color: var(--accent); }
+    .plan-detail strong { color: var(--text-primary); }
     .loading {
       text-align: center;
       padding: 40px;
       color: var(--text-secondary);
     }
-    input, button, textarea {
-      font-family: 'Inter', sans-serif;
-    }
-    /* Scanner Panel */
+    /* Scanner Panel specific */
     .scanner-panel {
       margin: 16px;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 16px;
-      overflow: visible;
+      overflow: hidden;
     }
     .scanner-header {
       padding: 12px 16px;
@@ -416,24 +398,22 @@
       margin-top: 16px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      overflow: auto;
-      max-height: 400px;
-      background: var(--bg-primary);
+      overflow: hidden;
     }
     .result-header {
       background: var(--accent-glow);
       padding: 10px 16px;
       font-weight: 600;
       font-size: 13px;
-      position: sticky;
-      top: 0;
     }
     .result-content {
       padding: 16px;
+      background: var(--bg-primary);
+      max-height: 300px;
+      overflow-y: auto;
       font-size: 12px;
       white-space: pre-wrap;
       word-break: break-word;
-      overflow-y: auto;
     }
     .result-actions {
       padding: 12px;
@@ -441,25 +421,22 @@
       gap: 8px;
       justify-content: flex-end;
       border-top: 1px solid var(--border);
-      background: var(--bg-card);
-      position: sticky;
-      bottom: 0;
-    }
-    .result-actions button {
-      padding: 6px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 12px;
     }
     .btn-cancel {
       border: 1px solid var(--border);
       background: var(--bg-card);
       color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
     }
     .btn-save {
       background: var(--accent);
       color: white;
       border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
     }
     .ingested-list {
       margin-top: 12px;
@@ -474,24 +451,45 @@
       margin-bottom: 6px;
       font-size: 12px;
     }
+    input, button, textarea {
+      font-family: 'Inter', sans-serif;
+    }
   </style>
 </head>
 <body class="light">
   <div class="header">
     <div class="header-content">
-      <div class="logo"><h1><i class="fas fa-brain"></i> MERIDIAN</h1><p>Texas Medicare Intelligence Platform</p></div>
-      <div class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-sun"></i><i class="fas fa-moon"></i></div>
+      <div class="logo">
+        <h1><i class="fas fa-brain"></i> MERIDIAN</h1>
+        <p>Texas Medicare Intelligence Platform</p>
+      </div>
+      <div class="theme-toggle" onclick="toggleTheme()">
+        <i class="fas fa-sun"></i>
+        <i class="fas fa-moon"></i>
+      </div>
     </div>
   </div>
   <div class="stats-bar">
-    <div class="stat"><i class="fas fa-chart-line"></i><span class="stat-value" id="planCount">0</span><span class="stat-label">Plans Available</span></div>
-    <div class="stat"><i class="fas fa-building"></i><span class="stat-value" id="carrierCount">0</span><span class="stat-label">Carriers</span></div>
-    <div class="stat"><i class="fas fa-robot"></i><span class="stat-value">AI Ready</span><span class="stat-label">24/7</span></div>
+    <div class="stat">
+      <i class="fas fa-chart-line"></i>
+      <span class="stat-value" id="planCount">0</span>
+      <span class="stat-label">Plans Available</span>
+    </div>
+    <div class="stat">
+      <i class="fas fa-building"></i>
+      <span class="stat-value" id="carrierCount">0</span>
+      <span class="stat-label">Carriers</span>
+    </div>
+    <div class="stat">
+      <i class="fas fa-robot"></i>
+      <span class="stat-value">AI Ready</span>
+      <span class="stat-label">24/7</span>
+    </div>
   </div>
   <div class="main-container">
-    <!-- LEFT: Plan Explorer -->
+    <!-- LEFT PANEL -->
     <div class="explorer-panel">
-      <!-- Manual Add Plan Form -->
+      <!-- Manual Add Plan -->
       <div style="margin: 16px; padding: 16px; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border);">
         <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Add Plan Manually</div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -503,6 +501,7 @@
         </div>
         <div id="addPlanMessage" style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);"></div>
       </div>
+
       <!-- Smart Document Scanner -->
       <div class="scanner-panel">
         <div class="scanner-header" onclick="toggleScannerPanel()">
@@ -531,21 +530,34 @@
           <div class="ingested-list" id="ingestedList"></div>
         </div>
       </div>
-      <!-- Filters & Plans List -->
+
+      <!-- Filters -->
       <div class="filters">
         <div class="filter-title"><i class="fas fa-sliders-h"></i> Filter Plans</div>
         <div class="filter-group">
           <select id="carrierFilter" class="filter-select"><option value="">All Carriers</option></select>
-          <select id="sortBy" class="filter-select"><option value="premium">Sort: Premium (Lowest)</option><option value="moop">Sort: MOOP (Lowest)</option><option value="giveback">Sort: Giveback (Highest)</option></select>
+          <select id="sortBy" class="filter-select">
+            <option value="premium">Sort: Premium (Lowest)</option>
+            <option value="moop">Sort: MOOP (Lowest)</option>
+            <option value="giveback">Sort: Giveback (Highest)</option>
+          </select>
         </div>
         <input type="text" id="searchPlans" class="search-input" placeholder="🔍 Search plans by name or carrier...">
       </div>
       <div id="plansList" class="plans-list"><div class="loading">Loading plans...</div></div>
     </div>
-    <!-- RIGHT: AI Assistant -->
+
+    <!-- RIGHT PANEL: AI CHAT -->
     <div class="assistant-panel">
       <div id="chatMessages" class="chat-messages">
-        <div class="message ai"><div class="avatar"><i class="fas fa-robot"></i></div><div class="content"><strong>MERIDIAN AI</strong><br>👋 Welcome! I can answer questions about any Medicare plan once you upload its documents.<br><br>Use the Smart Document Scanner on the left to upload and index PDFs, then ask me anything.</div></div>
+        <div class="message ai">
+          <div class="avatar"><i class="fas fa-robot"></i></div>
+          <div class="content">
+            <strong>MERIDIAN AI</strong><br>
+            👋 Welcome! I can answer questions about any Medicare plan once you upload its documents.<br><br>
+            Use the Smart Document Scanner on the left to upload and index PDFs, then ask me anything.
+          </div>
+        </div>
       </div>
       <div class="suggestions">
         <div class="suggestion" onclick="askQuestion('Which plans have giveback?')"><i class="fas fa-dollar-sign"></i> Giveback plans</div>
@@ -557,58 +569,66 @@
         <input type="text" id="chatInput" class="chat-input" placeholder="Ask me anything about Medicare plans..." onkeypress="if(event.key==='Enter') sendMessage()">
         <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
       </div>
-      <div class="status"><div class="status-dot"></div><span id="statusText">Ready • Use scanner to index documents</span></div>
+      <div class="status">
+        <div class="status-dot"></div>
+        <span id="statusText">Ready • Use scanner to index documents</span>
+      </div>
     </div>
   </div>
+
   <script>
-    // ---------- Theme & Globals ----------
+    // ========== THEME ==========
     let userId = localStorage.getItem('meridian_user_id');
-    if (!userId) { userId = 'user_' + Math.random().toString(36).substr(2,9); localStorage.setItem('meridian_user_id', userId); }
+    if (!userId) { userId = 'user_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('meridian_user_id', userId); }
     let currentSelectedPlan = null;
     let allPlans = [];
     function toggleTheme() {
-      if (document.body.classList.contains('light')) { document.body.classList.remove('light'); document.body.classList.add('dark'); localStorage.setItem('theme','dark'); }
-      else { document.body.classList.remove('dark'); document.body.classList.add('light'); localStorage.setItem('theme','light'); }
+      if (document.body.classList.contains('light')) {
+        document.body.classList.remove('light');
+        document.body.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.body.classList.remove('dark');
+        document.body.classList.add('light');
+        localStorage.setItem('theme', 'light');
+      }
     }
-    if (localStorage.getItem('theme') === 'dark') { document.body.classList.remove('light'); document.body.classList.add('dark'); }
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') { document.body.classList.remove('light'); document.body.classList.add('dark'); }
 
-    // ---------- Load Plans ----------
+    // ========== LOAD PLANS ==========
     async function loadPlans() {
       try {
         const res = await fetch('/api/plans');
         const data = await res.json();
         allPlans = data.plans || [];
         document.getElementById('planCount').textContent = allPlans.length;
-        const uniqueCarriers = [...new Set(allPlans.map(p=>p.carrier).filter(Boolean))];
+        const uniqueCarriers = [...new Set(allPlans.map(p => p.carrier).filter(Boolean))];
         document.getElementById('carrierCount').textContent = uniqueCarriers.length;
         const carrierSelect = document.getElementById('carrierFilter');
         carrierSelect.innerHTML = '<option value="">All Carriers</option>';
-        uniqueCarriers.forEach(c => { carrierSelect.innerHTML += `<option value="${c}">${c}</option>`; });
+        uniqueCarriers.forEach(c => carrierSelect.innerHTML += `<option value="${c}">${c}</option>`);
         renderPlans();
-      } catch(e) { document.getElementById('plansList').innerHTML = '<div class="loading">No plans yet. Add your first plan using the form above!</div>'; }
+      } catch(e) { document.getElementById('plansList').innerHTML = '<div class="loading">No plans yet.</div>'; }
     }
     function renderPlans() {
-      const carrierFilter = document.getElementById('carrierFilter').value;
-      const searchTerm = document.getElementById('searchPlans').value.toLowerCase();
-      const sortBy = document.getElementById('sortBy').value;
-      let filtered = allPlans.filter(p => {
-        if (carrierFilter && p.carrier !== carrierFilter) return false;
-        if (searchTerm && !p.plan_name?.toLowerCase().includes(searchTerm) && !p.carrier?.toLowerCase().includes(searchTerm)) return false;
-        return true;
-      });
-      if (sortBy === 'premium') filtered.sort((a,b)=> (a.premium||9999)-(b.premium||9999));
-      if (sortBy === 'moop') filtered.sort((a,b)=> (a.moop||99999)-(b.moop||99999));
-      if (sortBy === 'giveback') filtered.sort((a,b)=> (b.giveback||0)-(a.giveback||0));
+      const carrier = document.getElementById('carrierFilter').value;
+      const search = document.getElementById('searchPlans').value.toLowerCase();
+      const sort = document.getElementById('sortBy').value;
+      let filtered = allPlans.filter(p => (!carrier || p.carrier === carrier) && (!search || p.plan_name?.toLowerCase().includes(search) || p.carrier?.toLowerCase().includes(search)));
+      if (sort === 'premium') filtered.sort((a,b) => (a.premium||9999) - (b.premium||9999));
+      if (sort === 'moop') filtered.sort((a,b) => (a.moop||99999) - (b.moop||99999));
+      if (sort === 'giveback') filtered.sort((a,b) => (b.giveback||0) - (a.giveback||0));
       const container = document.getElementById('plansList');
-      if (filtered.length === 0) { container.innerHTML = '<div class="loading">No plans match your filters</div>'; return; }
-      container.innerHTML = filtered.map(plan => `
-        <div class="plan-card ${currentSelectedPlan?.id === plan.id ? 'selected' : ''}" onclick='selectPlan(${JSON.stringify(plan)})'>
-          <div class="plan-carrier"><i class="fas fa-building"></i> ${plan.carrier || 'Unknown'}</div>
-          <div class="plan-name">${plan.plan_name || 'Plan'}</div>
+      if (!filtered.length) { container.innerHTML = '<div class="loading">No plans match</div>'; return; }
+      container.innerHTML = filtered.map(p => `
+        <div class="plan-card ${currentSelectedPlan?.id === p.id ? 'selected' : ''}" onclick='selectPlan(${JSON.stringify(p)})'>
+          <div class="plan-carrier"><i class="fas fa-building"></i> ${p.carrier || 'Unknown'}</div>
+          <div class="plan-name">${p.plan_name || 'Plan'}</div>
           <div class="plan-details">
-            <div class="plan-detail"><i class="fas fa-dollar-sign"></i> <strong>$${plan.premium || 0}</strong>/mo</div>
-            <div class="plan-detail"><i class="fas fa-shield-alt"></i> MOOP <strong>$${plan.moop || 'N/A'}</strong></div>
-            ${plan.giveback ? `<div class="plan-detail"><i class="fas fa-gift"></i> Giveback <strong>$${plan.giveback}</strong>/mo</div>` : ''}
+            <div class="plan-detail"><i class="fas fa-dollar-sign"></i> <strong>$${p.premium || 0}</strong>/mo</div>
+            <div class="plan-detail"><i class="fas fa-shield-alt"></i> MOOP <strong>$${p.moop || 'N/A'}</strong></div>
+            ${p.giveback ? `<div class="plan-detail"><i class="fas fa-gift"></i> Giveback <strong>$${p.giveback}</strong>/mo</div>` : ''}
           </div>
         </div>
       `).join('');
@@ -620,29 +640,29 @@
       addAIMessage(`✨ I'm looking at **${plan.carrier} ${plan.plan_name}**.\n\n💰 Premium: **$${plan.premium}/mo**\n🛡️ MOOP: **$${plan.moop}**\n\nWhat would you like to know about this plan?`);
     }
 
-    // ---------- Chat ----------
+    // ========== CHAT ==========
     async function sendMessage() {
       const input = document.getElementById('chatInput');
-      const message = input.value.trim();
-      if (!message) return;
+      const msg = input.value.trim();
+      if (!msg) return;
       input.value = '';
-      addUserMessage(message);
-      let fullMessage = message;
-      if (currentSelectedPlan) fullMessage = `[Currently viewing: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}] ${message}`;
+      addUserMessage(msg);
+      let full = msg;
+      if (currentSelectedPlan) full = `[Currently viewing: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}] ${msg}`;
       document.getElementById('statusText').innerHTML = 'Thinking...';
       try {
-        const response = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId, message: fullMessage }) });
-        const data = await response.json();
+        const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, message: full }) });
+        const data = await res.json();
         addAIMessage(data.reply);
         document.getElementById('statusText').innerHTML = currentSelectedPlan ? `Selected: ${currentSelectedPlan.carrier} ${currentSelectedPlan.plan_name}` : 'Ready';
-      } catch(e) { addAIMessage("I'm having trouble connecting. Please try again."); document.getElementById('statusText').innerHTML = 'Connection error'; }
+      } catch(e) { addAIMessage("Connection error."); document.getElementById('statusText').innerHTML = 'Error'; }
     }
     function askQuestion(q) { document.getElementById('chatInput').value = q; sendMessage(); }
     function addUserMessage(t) { const c = document.getElementById('chatMessages'); c.innerHTML += `<div class="message user"><div class="avatar"><i class="fas fa-user"></i></div><div class="content">${escapeHtml(t)}</div></div>`; c.scrollTop = c.scrollHeight; }
     function addAIMessage(t) { const c = document.getElementById('chatMessages'); c.innerHTML += `<div class="message ai"><div class="avatar"><i class="fas fa-robot"></i></div><div class="content">${escapeHtml(t).replace(/\n/g,'<br>')}</div></div>`; c.scrollTop = c.scrollHeight; }
     function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-    // ---------- Manual Add Plan ----------
+    // ========== MANUAL ADD PLAN ==========
     document.getElementById('addPlanBtn').addEventListener('click', async () => {
       const carrier = document.getElementById('manualCarrier').value.trim();
       const plan_name = document.getElementById('manualPlanName').value.trim();
@@ -651,18 +671,18 @@
       if (!carrier || !plan_name) { document.getElementById('addPlanMessage').innerHTML = '<span style="color:#ef4444;">Carrier and Plan Name required</span>'; return; }
       document.getElementById('addPlanMessage').innerHTML = '<span style="color:var(--accent);">Adding...</span>';
       try {
-        const res = await fetch('/api/upload/add-plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ carrier, plan_name, premium, giveback:0, moop }) });
+        const res = await fetch('/api/upload/add-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ carrier, plan_name, premium, giveback: 0, moop }) });
         const data = await res.json();
         if (data.success) {
           document.getElementById('addPlanMessage').innerHTML = '<span style="color:#22c55e;">✅ Plan added!</span>';
           document.getElementById('manualCarrier').value = ''; document.getElementById('manualPlanName').value = ''; document.getElementById('manualPremium').value = ''; document.getElementById('manualMoop').value = '';
           loadPlans();
-          setTimeout(()=>{ document.getElementById('addPlanMessage').innerHTML = ''; },2000);
-        } else { document.getElementById('addPlanMessage').innerHTML = `<span style="color:#ef4444;">❌ ${data.error}</span>`; }
+          setTimeout(() => document.getElementById('addPlanMessage').innerHTML = '', 2000);
+        } else throw new Error(data.error);
       } catch(e) { document.getElementById('addPlanMessage').innerHTML = '<span style="color:#ef4444;">❌ Error adding plan</span>'; }
     });
 
-    // ---------- Smart Scanner ----------
+    // ========== SCANNER ==========
     let scanSelectedFile = null;
     function toggleScannerPanel() {
       const body = document.getElementById('scannerBody');
@@ -679,11 +699,11 @@
       const file = e.dataTransfer.files[0];
       if (file && file.type === 'application/pdf') setScanFile(file);
     }
-    document.getElementById('scanFileInput').addEventListener('change', (e) => { if(e.target.files[0]) setScanFile(e.target.files[0]); });
+    document.getElementById('scanFileInput').addEventListener('change', e => { if (e.target.files[0]) setScanFile(e.target.files[0]); });
     function setScanFile(file) {
       scanSelectedFile = file;
       document.getElementById('scanDropLabel').textContent = `📎 ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`;
-      document.getElementById('scanBtn').disabled = false;
+      checkScanReady();
     }
     function checkScanReady() {
       const plan = document.getElementById('scanPlanName').value.trim();
@@ -699,7 +719,7 @@
         const data = await res.json();
         const list = document.getElementById('ingestedList');
         if (!data.indexed_chunks || data.indexed_chunks.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:8px;">No documents indexed yet</div>'; return; }
-        list.innerHTML = `<div style="font-size:11px; font-weight:600; margin-bottom:8px;"><i class="fas fa-database"></i> Indexed Documents</div>${data.indexed_chunks.map(d => `<div class="ingested-item"><div><strong>${d.plan_name}</strong><br><span style="font-size:10px;">${d.chunks} chunks</span></div><span style="font-size:10px; background:var(--accent-glow); padding:2px 6px; border-radius:12px;">${d.doc_type?.replace(/_/g,' ')}</span></div>`).join('')}`;
+        list.innerHTML = `<div style="font-size:11px; font-weight:600; margin-bottom:8px;"><i class="fas fa-database"></i> Indexed Documents</div>` + data.indexed_chunks.map(d => `<div class="ingested-item"><div><strong>${d.plan_name}</strong><br><span style="font-size:10px;">${d.chunks} chunks</span></div><span style="font-size:10px; background:var(--accent-glow); padding:2px 6px; border-radius:12px;">${d.doc_type?.replace(/_/g,' ')}</span></div>`).join('');
       } catch(e) { console.error(e); }
     }
 
@@ -718,7 +738,7 @@
       formData.append('plan_name', planName);
       formData.append('doc_type', docType);
       try {
-        const response = await fetch('/api/scan-document', { method:'POST', body: formData });
+        const response = await fetch('/api/scan-document', { method: 'POST', body: formData });
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         const extractedJson = JSON.stringify(data.extracted, null, 2);
@@ -743,7 +763,7 @@
             ingestForm.append('file', scanSelectedFile);
             ingestForm.append('plan_name', planName);
             ingestForm.append('doc_type', docType);
-            const ingestResp = await fetch('/api/upload/ingest', { method:'POST', body: ingestForm });
+            const ingestResp = await fetch('/api/upload/ingest', { method: 'POST', body: ingestForm });
             const ingestData = await ingestResp.json();
             if (ingestData.success) {
               resultDiv.innerHTML = `<div class="scan-result"><div class="result-header" style="background:rgba(34,197,94,0.2);">✅ Saved! Document indexed and ready for queries.</div></div>`;
@@ -755,7 +775,7 @@
               document.getElementById('scanFileInput').value = '';
               loadIngestedDocs();
             } else throw new Error(ingestData.error);
-          } catch(err) {
+          } catch (err) {
             resultDiv.innerHTML = `<div class="scan-result"><div class="result-header" style="background:rgba(239,68,68,0.2);">❌ Save failed: ${err.message}</div></div>`;
           }
           saveBtn.disabled = false;
@@ -764,7 +784,7 @@
           resultDiv.style.display = 'none';
           btn.disabled = false;
         };
-      } catch(err) {
+      } catch (err) {
         progress.style.display = 'none';
         resultDiv.style.display = 'block';
         resultDiv.innerHTML = `<div class="scan-result"><div class="result-header" style="background:rgba(239,68,68,0.2);">❌ Scan failed: ${err.message}</div></div>`;
@@ -772,7 +792,7 @@
       }
     }
 
-    // ---------- Event Listeners ----------
+    // EVENT LISTENERS
     document.getElementById('carrierFilter').addEventListener('change', renderPlans);
     document.getElementById('sortBy').addEventListener('change', renderPlans);
     document.getElementById('searchPlans').addEventListener('input', renderPlans);
