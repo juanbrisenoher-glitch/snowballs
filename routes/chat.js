@@ -8,15 +8,22 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-if (!GROQ_API_KEY) console.error('❌ GROQ_API_KEY not set');
+// Use OpenRouter API key (free tier)
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+if (!OPENROUTER_API_KEY) {
+  console.error('❌ OPENROUTER_API_KEY environment variable is not set!');
+} else {
+  console.log('✅ OPENROUTER_API_KEY loaded');
+}
 
+// Load documents into memory cache
 async function loadDocuments() {
   try {
     const result = await pool.query('SELECT filename, content, plan_name FROM documents');
     global.documentCache = result.rows;
     console.log(`📚 Loaded ${global.documentCache.length} documents with plan names`);
   } catch (err) {
+    console.error('Failed to load documents:', err.message);
     global.documentCache = [];
   }
 }
@@ -29,18 +36,17 @@ async function getAllPlanNames() {
 
 function detectPlanName(question) {
   const q = question.toLowerCase();
-  // Explicit patterns – order matters (more specific first)
-  const planKeywords = [
+  const plans = [
     { name: 'Alignment Health smartSavings (HMO-POS)', keywords: ['smartsavings', 'smart savings', 'smart-savings', 'h5472-010'] },
     { name: 'Alignment Health the ONE + Walgreens (HMO-POS)', keywords: ['one + walgreens', 'the one', 'one walgreens', 'h5472-001'] },
-    { name: 'Alignment Health Heart & Diabetes (HMO-POS C-SNP)', keywords: ['heart & diabetes', 'heart and diabetes', 'h5472-002', 'c-snp'] },
+    { name: 'Alignment Health Heart & Diabetes (HMO-POS C-SNP)', keywords: ['heart & diabetes', 'heart and diabetes', 'h5472-002'] },
     { name: 'Alignment Health Dual Select+ (HMO-POS D-SNP)', keywords: ['dual select', 'd-snp', 'h5472-007'] },
     { name: 'Alignment Health Total Dual+ (HMO-POS D-SNP)', keywords: ['total dual', 'h5472-009'] }
   ];
-  for (const plan of planKeywords) {
+  for (const plan of plans) {
     for (const kw of plan.keywords) {
       if (q.includes(kw)) {
-        console.log(`🔍 Detected plan: ${plan.name} (matched keyword "${kw}")`);
+        console.log(`🔍 Detected plan: ${plan.name}`);
         return plan.name;
       }
     }
@@ -100,10 +106,11 @@ router.post('/', async (req, res) => {
     if (planName) {
       systemPrompt += `\n\nThe user asked about the plan "${planName}". Only use the context that comes from that plan.`;
     }
-    systemPrompt += `\n\nCONTEXT:\n${context || "No relevant documents found."}\n\nAnswer concisely.`;
+    systemPrompt += `\n\nCONTEXT:\n${context || "No relevant documents found."}\n\nAnswer the user's question concisely and include specific numbers if available.`;
 
+    // OpenRouter API request (free models)
     const body = JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'meta-llama/llama-3-8b-instruct',  // free, good quality
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
@@ -113,17 +120,19 @@ router.post('/', async (req, res) => {
     });
 
     const options = {
-      hostname: 'api.groq.com',
-      path: '/openai/v1/chat/completions',
+      hostname: 'openrouter.ai',
+      path: '/api/v1/chat/completions',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://snowballs-production.up.railway.app', // replace with your actual domain
+        'X-Title': 'MERIDIAN AI',
         'Content-Length': Buffer.byteLength(body)
       }
     };
 
-    const groqResponse = await new Promise((resolve, reject) => {
+    const openrouterResponse = await new Promise((resolve, reject) => {
       const request = https.request(options, (resp) => {
         let data = '';
         resp.on('data', chunk => data += chunk);
@@ -132,7 +141,7 @@ router.post('/', async (req, res) => {
             const json = JSON.parse(data);
             if (json.error) reject(new Error(json.error.message));
             else resolve(json);
-          } catch (e) { reject(new Error('Invalid JSON from Groq')); }
+          } catch (e) { reject(new Error('Invalid JSON from OpenRouter')); }
         });
       });
       request.on('error', reject);
@@ -140,7 +149,7 @@ router.post('/', async (req, res) => {
       request.end();
     });
 
-    const reply = groqResponse.choices?.[0]?.message?.content || "I couldn't process that.";
+    const reply = openrouterResponse.choices?.[0]?.message?.content || "I couldn't process that.";
     res.json({ reply });
   } catch (err) {
     console.error('Chat error:', err);
