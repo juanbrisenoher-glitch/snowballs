@@ -10,22 +10,23 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ---------- Routes ----------
 const chatRouter = require('./routes/chat');
 const plansRouter = require('./routes/plans');
-const uploadRouter = require('./routes/upload');
-const ingestRouter = require('./routes/ingest');
-const ragRouter = require('./routes/rag');
+const uploadRouter = require('./routes/upload');   // handles /add-plan, /ingest, /status
+const scanRouter = require('./routes/scan');
 
 app.use('/api/chat', chatRouter);
 app.use('/api/plans', plansRouter);
-app.use('/api/upload', uploadRouter);
-app.use('/api', ingestRouter);
-app.use('/api', ragRouter);
+app.use('/api/upload', uploadRouter);      // POST /api/upload/add-plan, POST /api/upload/ingest, GET /api/upload/status
+app.use('/api/scan-document', scanRouter); // POST /api/scan-document
 
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Root route - serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
