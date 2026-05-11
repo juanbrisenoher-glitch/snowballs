@@ -1,39 +1,37 @@
-const express = require('express');
-const path = require('path');
-const Groq = require('groq-sdk');
+const multer = require('multer');
+const { Pool } = require('pg');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
-app.use(express.json());
-app.use(express.static('public'));
+// Configure multer for file uploads (store in memory)
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
 
-app.post('/api/chat', async (req, res) => {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message is required' });
-
+// Endpoint to handle document upload
+app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful Medicare assistant. Provide accurate, concise information. Clarify that you are an AI and recommend consulting official sources.',
-        },
-        { role: 'user', content: message },
-      ],
-      model: 'llama-3.1-8b-instant',
-      temperature: 0.5,
-      max_tokens: 1024,
-    });
-    res.json({ reply: chatCompletion.choices[0].message.content });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filename = req.file.originalname;
+    // Convert file content to text (assuming plain text or extract text)
+    let content = req.file.buffer.toString('utf-8'); // For .txt files
+
+    // If you need PDF parsing, add pdf-parse package
+    // For now, we assume .txt files
+
+    const result = await pool.query(
+      'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
+      [filename, content]
+    );
+
+    res.json({ success: true, id: result.rows[0].id, message: 'Document uploaded and scanned successfully' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Failed to get response from AI.' });
+    res.status(500).json({ error: 'Failed to upload document' });
   }
 });
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
