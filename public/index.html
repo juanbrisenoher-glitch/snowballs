@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>MERIDIAN | Medicare Intelligence Platform</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -40,17 +40,16 @@
       background: var(--bg-primary);
       color: var(--text-primary);
     }
+    /* Header */
     .header {
       background: var(--header-bg);
-      padding: 16px 32px;
+      padding: 12px 24px;
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 100;
     }
     .header-content {
-      max-width: 1600px;
-      margin: 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -63,21 +62,17 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-    .logo p {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 2px;
-    }
+    .logo p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
     .theme-toggle {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 40px;
-      padding: 8px 16px;
+      padding: 6px 12px;
       cursor: pointer;
       display: flex;
       gap: 8px;
-      transition: all 0.3s;
     }
+    /* Stats Bar */
     .stats-bar {
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
@@ -86,190 +81,155 @@
       gap: 24px;
       font-size: 13px;
     }
-    .stat {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .stat i { color: var(--accent); font-size: 14px; }
-    .stat-value { font-weight: 600; color: var(--text-primary); }
-    .stat-label { color: var(--text-secondary); }
+    .stat { display: flex; align-items: center; gap: 8px; }
+    .stat i { color: var(--accent); }
+    /* Main Layout */
     .main-container {
       display: flex;
-      height: calc(100vh - 72px);
+      height: calc(100vh - 90px);
       max-width: 1600px;
       margin: 0 auto;
     }
+    /* Left Panel: Scanner + Plan List */
     .explorer-panel {
       width: 40%;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-    }
-    .assistant-panel {
-      width: 60%;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg-primary);
-    }
-    .chat-messages {
-      flex: 1;
       overflow-y: auto;
-      padding: 24px;
     }
-    .message {
-      margin-bottom: 20px;
-      display: flex;
-      gap: 12px;
-      animation: fadeIn 0.3s ease;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .message.user { flex-direction: row-reverse; }
-    .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
+    /* Scanner Panel */
+    .scanner-panel {
+      margin: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
       flex-shrink: 0;
     }
-    .message.ai .avatar {
-      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-    }
-    .message.user .avatar {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-    }
-    .content {
-      max-width: 75%;
-      padding: 12px 18px;
-      border-radius: 20px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-    .message.ai .content {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-bottom-left-radius: 4px;
-    }
-    .message.user .content {
-      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-      color: white;
-      border-bottom-right-radius: 4px;
-    }
-    .suggestions {
-      padding: 16px 24px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      border-top: 1px solid var(--border);
+    .scanner-header {
+      padding: 12px 16px;
       background: var(--bg-secondary);
-    }
-    .suggestion {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 8px 16px;
-      border-radius: 40px;
-      font-size: 12px;
-      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+      font-weight: 600;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      transition: all 0.2s;
+      cursor: pointer;
     }
-    .suggestion:hover {
-      background: var(--accent);
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-    .chat-input-area {
-      padding: 16px 24px;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 12px;
-    }
-    .chat-input {
-      flex: 1;
-      padding: 14px 20px;
+    .scanner-header i { color: var(--accent); margin-right: 8px; }
+    .scanner-body { padding: 16px; }
+    .scanner-input, .scanner-select {
+      width: 100%;
+      padding: 10px 12px;
       background: var(--bg-primary);
       border: 1px solid var(--border);
-      border-radius: 40px;
+      border-radius: 12px;
       color: var(--text-primary);
       font-size: 14px;
+      margin-bottom: 12px;
     }
-    .chat-input:focus {
-      outline: none;
+    .file-drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 12px;
+      background: var(--bg-primary);
+      transition: all 0.2s;
+    }
+    .file-drop-zone:hover, .file-drop-zone.drag-over {
       border-color: var(--accent);
+      background: var(--accent-glow);
     }
-    .send-btn {
-      padding: 12px 28px;
+    .file-drop-zone i { font-size: 28px; color: var(--accent); margin-bottom: 8px; display: block; }
+    .file-drop-zone input { display: none; }
+    .scan-btn {
+      width: 100%;
+      padding: 12px;
       background: linear-gradient(135deg, var(--accent), var(--accent-dark));
       color: white;
       border: none;
-      border-radius: 40px;
-      cursor: pointer;
+      border-radius: 12px;
+      font-size: 14px;
       font-weight: 600;
-      transition: all 0.2s;
+      cursor: pointer;
     }
-    .send-btn:hover {
-      transform: translateY(-2px);
+    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .scan-progress {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--accent);
+      text-align: center;
+      display: none;
     }
-    .status {
-      padding: 10px 24px;
-      font-size: 11px;
-      color: var(--text-secondary);
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22c55e;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .filters {
-      padding: 20px;
-      border-bottom: 1px solid var(--border);
+    .scan-result {
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
       background: var(--bg-card);
     }
-    .filter-title {
+    .result-header {
+      background: var(--accent-glow);
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .result-content {
+      padding: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+      background: var(--bg-primary);
+      font-size: 12px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    .result-actions {
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    .btn-cancel, .btn-save {
+      padding: 8px 16px;
+      border-radius: 40px;
       font-size: 12px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--accent);
-      margin-bottom: 16px;
+      cursor: pointer;
+    }
+    .btn-cancel {
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    .btn-save {
+      background: var(--accent);
+      border: none;
+      color: white;
+    }
+    /* Plan Filters & List */
+    .filters {
+      padding: 16px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
     }
     .filter-group {
       display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 12px;
     }
     .filter-select, .search-input {
       flex: 1;
-      padding: 10px 14px;
+      padding: 8px 12px;
       background: var(--bg-primary);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text-primary);
-      font-size: 13px;
+      border-radius: 10px;
     }
     .plans-list {
       flex: 1;
@@ -279,181 +239,130 @@
     .plan-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 12px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .plan-card:hover {
-      transform: translateX(4px);
-      border-color: var(--accent);
-    }
-    .plan-card.selected {
-      background: var(--accent-glow);
-      border-color: var(--accent);
-    }
-    .plan-carrier {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--accent);
-      margin-bottom: 6px;
-    }
-    .plan-name {
-      font-weight: 700;
-      font-size: 16px;
+      border-radius: 14px;
+      padding: 12px;
       margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .plan-details {
+    .plan-card:hover { transform: translateX(4px); border-color: var(--accent); }
+    .plan-card.selected { background: var(--accent-glow); border-color: var(--accent); }
+    .plan-carrier { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; margin-bottom: 4px; }
+    .plan-name { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+    .plan-details { display: flex; gap: 12px; font-size: 11px; color: var(--text-secondary); }
+    .plan-details i { width: 14px; color: var(--accent); }
+    /* Right Panel Chat */
+    .assistant-panel {
+      width: 60%;
       display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      background: var(--bg-primary);
     }
-    .plan-detail {
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .message {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 12px;
+    }
+    .message.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .message.ai .avatar { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: white; }
+    .message.user .avatar { background: var(--bg-card); border: 1px solid var(--border); }
+    .content {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 18px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .message.ai .content { background: var(--bg-card); border: 1px solid var(--border); }
+    .message.user .content { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: white; }
+    .suggestions {
+      padding: 12px 20px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+    .suggestion {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 40px;
+      font-size: 11px;
+      cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 12px;
-      color: var(--text-secondary);
     }
-    .plan-detail i { width: 14px; color: var(--accent); }
-    .plan-detail strong { color: var(--text-primary); }
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--text-secondary);
-    }
-    /* Scanner Panel specific */
-    .scanner-panel {
-      margin: 16px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      overflow: hidden;
-    }
-    .scanner-header {
-      padding: 12px 16px;
+    .chat-input-area {
+      padding: 12px 20px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-      font-weight: 600;
+      gap: 10px;
     }
-    .scanner-header i { color: var(--accent); margin-right: 8px; }
-    .scanner-header .toggle-icon { color: var(--text-secondary); transition: transform 0.2s; }
-    .scanner-body { padding: 16px; display: block; }
-    .scanner-input, .scanner-select {
-      width: 100%;
-      padding: 10px 12px;
+    .chat-input {
+      flex: 1;
+      padding: 10px 16px;
       background: var(--bg-primary);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text-primary);
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-    .file-drop-zone {
-      border: 2px dashed var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 12px;
-      color: var(--text-secondary);
+      border-radius: 40px;
       font-size: 13px;
     }
-    .file-drop-zone:hover, .file-drop-zone.drag-over {
-      border-color: var(--accent);
-      background: var(--accent-glow);
-      color: var(--text-primary);
-    }
-    .file-drop-zone i { font-size: 32px; margin-bottom: 10px; display: block; color: var(--accent); }
-    .file-drop-zone input[type="file"] { display: none; }
-    .scan-btn {
-      width: 100%;
-      padding: 12px;
+    .send-btn {
+      padding: 10px 20px;
       background: linear-gradient(135deg, var(--accent), var(--accent-dark));
       color: white;
       border: none;
-      border-radius: 10px;
-      font-size: 14px;
+      border-radius: 40px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
     }
-    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .scan-progress {
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--accent);
-      display: none;
-      text-align: center;
-    }
-    .scan-result {
-      margin-top: 16px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    .result-header {
-      background: var(--accent-glow);
-      padding: 10px 16px;
-      font-weight: 600;
-      font-size: 13px;
-    }
-    .result-content {
-      padding: 16px;
-      background: var(--bg-primary);
-      max-height: 300px;
-      overflow-y: auto;
-      font-size: 12px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .result-actions {
-      padding: 12px;
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
+    .status {
+      padding: 8px 20px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
       border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .btn-cancel {
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text-primary);
-      padding: 6px 12px;
-      border-radius: 8px;
-      cursor: pointer;
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2s infinite;
     }
-    .btn-save {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
     .ingested-list {
-      margin-top: 12px;
+      margin-top: 16px;
+      font-size: 11px;
     }
     .ingested-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 7px 10px;
       background: var(--bg-primary);
       border-radius: 8px;
+      padding: 6px 10px;
       margin-bottom: 6px;
-      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
     }
-    input, button, textarea {
-      font-family: 'Inter', sans-serif;
-    }
+    .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
   </style>
 </head>
 <body class="light">
@@ -470,43 +379,18 @@
     </div>
   </div>
   <div class="stats-bar">
-    <div class="stat">
-      <i class="fas fa-chart-line"></i>
-      <span class="stat-value" id="planCount">0</span>
-      <span class="stat-label">Plans Available</span>
-    </div>
-    <div class="stat">
-      <i class="fas fa-building"></i>
-      <span class="stat-value" id="carrierCount">0</span>
-      <span class="stat-label">Carriers</span>
-    </div>
-    <div class="stat">
-      <i class="fas fa-robot"></i>
-      <span class="stat-value">AI Ready</span>
-      <span class="stat-label">24/7</span>
-    </div>
+    <div class="stat"><i class="fas fa-chart-line"></i><span id="planCount">0</span> <span class="stat-label">Plans</span></div>
+    <div class="stat"><i class="fas fa-building"></i><span id="carrierCount">0</span> <span class="stat-label">Carriers</span></div>
+    <div class="stat"><i class="fas fa-robot"></i><span>AI Ready</span> <span class="stat-label">24/7</span></div>
   </div>
   <div class="main-container">
     <!-- LEFT PANEL -->
     <div class="explorer-panel">
-      <!-- Manual Add Plan -->
-      <div style="margin: 16px; padding: 16px; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border);">
-        <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Add Plan Manually</div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <input type="text" id="manualCarrier" placeholder="Carrier" style="flex: 1; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
-          <input type="text" id="manualPlanName" placeholder="Plan Name" style="flex: 2; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
-          <input type="number" id="manualPremium" placeholder="Premium $" style="width: 100px; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
-          <input type="number" id="manualMoop" placeholder="MOOP $" style="width: 100px; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
-          <button id="addPlanBtn" style="padding: 8px 16px; background: var(--accent); border: none; border-radius: 8px; color: white; cursor: pointer;">Add</button>
-        </div>
-        <div id="addPlanMessage" style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);"></div>
-      </div>
-
-      <!-- Smart Document Scanner -->
+      <!-- Smart Document Scanner - main section -->
       <div class="scanner-panel">
-        <div class="scanner-header" onclick="toggleScannerPanel()">
+        <div class="scanner-header">
           <span><i class="fas fa-magic"></i> Smart Document Scanner</span>
-          <i class="fas fa-chevron-down toggle-icon" id="scannerToggleIcon"></i>
+          <i class="fas fa-chevron-down" id="scannerToggleIcon" style="transition: transform 0.2s;"></i>
         </div>
         <div class="scanner-body" id="scannerBody">
           <input type="text" id="scanPlanName" class="scanner-input" placeholder="Plan name (e.g. Alignment SmartSavings HMO-POS)">
@@ -525,24 +409,22 @@
             <input type="file" id="scanFileInput" accept=".pdf" style="display:none">
           </div>
           <button class="scan-btn" id="scanBtn" onclick="startScan()" disabled>Scan Document</button>
-          <div id="scanProgress" class="scan-progress"><i class="fas fa-spinner fa-pulse"></i> Scanning... (may take 20-30 seconds)</div>
+          <div id="scanProgress" class="scan-progress"><i class="fas fa-spinner fa-pulse"></i> Scanning...</div>
           <div id="scanResult" style="display:none;"></div>
-          <div class="ingested-list" id="ingestedList"></div>
+          <div id="ingestedList" class="ingested-list"></div>
         </div>
       </div>
-
-      <!-- Filters -->
+      <!-- Filter Plans -->
       <div class="filters">
-        <div class="filter-title"><i class="fas fa-sliders-h"></i> Filter Plans</div>
         <div class="filter-group">
           <select id="carrierFilter" class="filter-select"><option value="">All Carriers</option></select>
           <select id="sortBy" class="filter-select">
-            <option value="premium">Sort: Premium (Lowest)</option>
-            <option value="moop">Sort: MOOP (Lowest)</option>
-            <option value="giveback">Sort: Giveback (Highest)</option>
+            <option value="premium">Sort by Premium (lowest)</option>
+            <option value="moop">Sort by MOOP (lowest)</option>
+            <option value="giveback">Sort by Giveback (highest)</option>
           </select>
         </div>
-        <input type="text" id="searchPlans" class="search-input" placeholder="🔍 Search plans by name or carrier...">
+        <input type="text" id="searchPlans" class="search-input" placeholder="🔍 Search plans...">
       </div>
       <div id="plansList" class="plans-list"><div class="loading">Loading plans...</div></div>
     </div>
@@ -554,8 +436,7 @@
           <div class="avatar"><i class="fas fa-robot"></i></div>
           <div class="content">
             <strong>MERIDIAN AI</strong><br>
-            👋 Welcome! I can answer questions about any Medicare plan once you upload its documents.<br><br>
-            Use the Smart Document Scanner on the left to upload and index PDFs, then ask me anything.
+            👋 Welcome! Use the scanner on the left to upload and index PDFs, then ask me anything.
           </div>
         </div>
       </div>
@@ -563,15 +444,15 @@
         <div class="suggestion" onclick="askQuestion('Which plans have giveback?')"><i class="fas fa-dollar-sign"></i> Giveback plans</div>
         <div class="suggestion" onclick="askQuestion('Show me lowest MOOP plans')"><i class="fas fa-chart-line"></i> Lowest MOOP</div>
         <div class="suggestion" onclick="askQuestion('What dental benefits are available?')"><i class="fas fa-tooth"></i> Dental benefits</div>
-        <div class="suggestion" onclick="askQuestion('Compare plans side by side')"><i class="fas fa-balance-scale"></i> Compare plans</div>
+        <div class="suggestion" onclick="askQuestion('Compare plans')"><i class="fas fa-balance-scale"></i> Compare plans</div>
       </div>
       <div class="chat-input-area">
-        <input type="text" id="chatInput" class="chat-input" placeholder="Ask me anything about Medicare plans..." onkeypress="if(event.key==='Enter') sendMessage()">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Ask me anything..." onkeypress="if(event.key==='Enter') sendMessage()">
         <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
       </div>
       <div class="status">
         <div class="status-dot"></div>
-        <span id="statusText">Ready • Use scanner to index documents</span>
+        <span id="statusText">Ready</span>
       </div>
     </div>
   </div>
@@ -579,7 +460,7 @@
   <script>
     // ========== THEME ==========
     let userId = localStorage.getItem('meridian_user_id');
-    if (!userId) { userId = 'user_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('meridian_user_id', userId); }
+    if (!userId) { userId = 'user_' + Math.random().toString(36).substr(2,9); localStorage.setItem('meridian_user_id', userId); }
     let currentSelectedPlan = null;
     let allPlans = [];
     function toggleTheme() {
@@ -593,8 +474,7 @@
         localStorage.setItem('theme', 'light');
       }
     }
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') { document.body.classList.remove('light'); document.body.classList.add('dark'); }
+    if (localStorage.getItem('theme') === 'dark') { document.body.classList.remove('light'); document.body.classList.add('dark'); }
 
     // ========== LOAD PLANS ==========
     async function loadPlans() {
@@ -603,22 +483,22 @@
         const data = await res.json();
         allPlans = data.plans || [];
         document.getElementById('planCount').textContent = allPlans.length;
-        const uniqueCarriers = [...new Set(allPlans.map(p => p.carrier).filter(Boolean))];
-        document.getElementById('carrierCount').textContent = uniqueCarriers.length;
-        const carrierSelect = document.getElementById('carrierFilter');
-        carrierSelect.innerHTML = '<option value="">All Carriers</option>';
-        uniqueCarriers.forEach(c => carrierSelect.innerHTML += `<option value="${c}">${c}</option>`);
+        const carriers = [...new Set(allPlans.map(p => p.carrier).filter(Boolean))];
+        document.getElementById('carrierCount').textContent = carriers.length;
+        const sel = document.getElementById('carrierFilter');
+        sel.innerHTML = '<option value="">All Carriers</option>';
+        carriers.forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
         renderPlans();
-      } catch(e) { document.getElementById('plansList').innerHTML = '<div class="loading">No plans yet.</div>'; }
+      } catch(e) { document.getElementById('plansList').innerHTML = '<div class="loading">No plans yet. Use scanner to add.</div>'; }
     }
     function renderPlans() {
       const carrier = document.getElementById('carrierFilter').value;
       const search = document.getElementById('searchPlans').value.toLowerCase();
       const sort = document.getElementById('sortBy').value;
       let filtered = allPlans.filter(p => (!carrier || p.carrier === carrier) && (!search || p.plan_name?.toLowerCase().includes(search) || p.carrier?.toLowerCase().includes(search)));
-      if (sort === 'premium') filtered.sort((a,b) => (a.premium||9999) - (b.premium||9999));
-      if (sort === 'moop') filtered.sort((a,b) => (a.moop||99999) - (b.moop||99999));
-      if (sort === 'giveback') filtered.sort((a,b) => (b.giveback||0) - (a.giveback||0));
+      if (sort === 'premium') filtered.sort((a,b)=> (a.premium||9999)-(b.premium||9999));
+      if (sort === 'moop') filtered.sort((a,b)=> (a.moop||99999)-(b.moop||99999));
+      if (sort === 'giveback') filtered.sort((a,b)=> (b.giveback||0)-(a.giveback||0));
       const container = document.getElementById('plansList');
       if (!filtered.length) { container.innerHTML = '<div class="loading">No plans match</div>'; return; }
       container.innerHTML = filtered.map(p => `
@@ -626,9 +506,9 @@
           <div class="plan-carrier"><i class="fas fa-building"></i> ${p.carrier || 'Unknown'}</div>
           <div class="plan-name">${p.plan_name || 'Plan'}</div>
           <div class="plan-details">
-            <div class="plan-detail"><i class="fas fa-dollar-sign"></i> <strong>$${p.premium || 0}</strong>/mo</div>
-            <div class="plan-detail"><i class="fas fa-shield-alt"></i> MOOP <strong>$${p.moop || 'N/A'}</strong></div>
-            ${p.giveback ? `<div class="plan-detail"><i class="fas fa-gift"></i> Giveback <strong>$${p.giveback}</strong>/mo</div>` : ''}
+            <span><i class="fas fa-dollar-sign"></i> $${p.premium || 0}/mo</span>
+            <span><i class="fas fa-shield-alt"></i> MOOP $${p.moop || 'N/A'}</span>
+            ${p.giveback ? `<span><i class="fas fa-gift"></i> $${p.giveback}/mo giveback</span>` : ''}
           </div>
         </div>
       `).join('');
@@ -637,7 +517,7 @@
       currentSelectedPlan = plan;
       renderPlans();
       document.getElementById('statusText').innerHTML = `Selected: ${plan.carrier} ${plan.plan_name}`;
-      addAIMessage(`✨ I'm looking at **${plan.carrier} ${plan.plan_name}**.\n\n💰 Premium: **$${plan.premium}/mo**\n🛡️ MOOP: **$${plan.moop}**\n\nWhat would you like to know about this plan?`);
+      addAIMessage(`✨ I'm looking at **${plan.carrier} ${plan.plan_name}**.\n\n💰 Premium: **$${plan.premium}/mo**\n🛡️ MOOP: **$${plan.moop}**`);
     }
 
     // ========== CHAT ==========
@@ -662,35 +542,18 @@
     function addAIMessage(t) { const c = document.getElementById('chatMessages'); c.innerHTML += `<div class="message ai"><div class="avatar"><i class="fas fa-robot"></i></div><div class="content">${escapeHtml(t).replace(/\n/g,'<br>')}</div></div>`; c.scrollTop = c.scrollHeight; }
     function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-    // ========== MANUAL ADD PLAN ==========
-    document.getElementById('addPlanBtn').addEventListener('click', async () => {
-      const carrier = document.getElementById('manualCarrier').value.trim();
-      const plan_name = document.getElementById('manualPlanName').value.trim();
-      const premium = parseFloat(document.getElementById('manualPremium').value) || 0;
-      const moop = parseFloat(document.getElementById('manualMoop').value) || null;
-      if (!carrier || !plan_name) { document.getElementById('addPlanMessage').innerHTML = '<span style="color:#ef4444;">Carrier and Plan Name required</span>'; return; }
-      document.getElementById('addPlanMessage').innerHTML = '<span style="color:var(--accent);">Adding...</span>';
-      try {
-        const res = await fetch('/api/upload/add-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ carrier, plan_name, premium, giveback: 0, moop }) });
-        const data = await res.json();
-        if (data.success) {
-          document.getElementById('addPlanMessage').innerHTML = '<span style="color:#22c55e;">✅ Plan added!</span>';
-          document.getElementById('manualCarrier').value = ''; document.getElementById('manualPlanName').value = ''; document.getElementById('manualPremium').value = ''; document.getElementById('manualMoop').value = '';
-          loadPlans();
-          setTimeout(() => document.getElementById('addPlanMessage').innerHTML = '', 2000);
-        } else throw new Error(data.error);
-      } catch(e) { document.getElementById('addPlanMessage').innerHTML = '<span style="color:#ef4444;">❌ Error adding plan</span>'; }
-    });
-
     // ========== SCANNER ==========
     let scanSelectedFile = null;
     function toggleScannerPanel() {
       const body = document.getElementById('scannerBody');
       const icon = document.getElementById('scannerToggleIcon');
-      body.classList.toggle('open');
-      icon.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
-      if (body.classList.contains('open')) loadIngestedDocs();
+      body.style.display = body.style.display === 'none' ? 'block' : 'none';
+      icon.style.transform = body.style.display === 'none' ? 'rotate(0deg)' : 'rotate(180deg)';
+      if (body.style.display !== 'none') loadIngestedDocs();
     }
+    // Open by default
+    document.getElementById('scannerBody').style.display = 'block';
+    document.getElementById('scannerToggleIcon').style.transform = 'rotate(180deg)';
     function handleScanDragOver(e) { e.preventDefault(); document.getElementById('scanDropZone').classList.add('drag-over'); }
     function handleScanDragLeave(e) { document.getElementById('scanDropZone').classList.remove('drag-over'); }
     function handleScanDrop(e) {
@@ -717,9 +580,13 @@
       try {
         const res = await fetch('/api/upload/status');
         const data = await res.json();
-        const list = document.getElementById('ingestedList');
-        if (!data.indexed_chunks || data.indexed_chunks.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:8px;">No documents indexed yet</div>'; return; }
-        list.innerHTML = `<div style="font-size:11px; font-weight:600; margin-bottom:8px;"><i class="fas fa-database"></i> Indexed Documents</div>` + data.indexed_chunks.map(d => `<div class="ingested-item"><div><strong>${d.plan_name}</strong><br><span style="font-size:10px;">${d.chunks} chunks</span></div><span style="font-size:10px; background:var(--accent-glow); padding:2px 6px; border-radius:12px;">${d.doc_type?.replace(/_/g,' ')}</span></div>`).join('');
+        const listDiv = document.getElementById('ingestedList');
+        if (!data.indexed_chunks || data.indexed_chunks.length === 0) {
+          listDiv.innerHTML = '<div style="text-align:center; padding:8px;">No documents indexed yet</div>';
+          return;
+        }
+        listDiv.innerHTML = `<div style="margin-bottom:6px; font-size:11px; font-weight:600;">📄 Indexed Documents</div>` +
+          data.indexed_chunks.map(d => `<div class="ingested-item"><span><strong>${d.plan_name}</strong><br><span style="font-size:10px;">${d.chunks} chunks</span></span><span style="background:var(--accent-glow); padding:2px 6px; border-radius:20px;">${d.doc_type}</span></div>`).join('');
       } catch(e) { console.error(e); }
     }
 
@@ -743,13 +610,11 @@
         if (data.error) throw new Error(data.error);
         const extractedJson = JSON.stringify(data.extracted, null, 2);
         resultDiv.innerHTML = `
-          <div class="scan-result">
-            <div class="result-header">Extracted Data – Review before saving</div>
-            <div class="result-content"><pre style="margin:0; white-space:pre-wrap; font-family:monospace;">${escapeHtml(extractedJson)}</pre></div>
-            <div class="result-actions">
-              <button id="cancelScanResult" class="btn-cancel">Cancel</button>
-              <button id="saveScanResult" class="btn-save">Save to Database</button>
-            </div>
+          <div class="result-header">📋 Extracted Data – Review before saving</div>
+          <div class="result-content"><pre>${escapeHtml(extractedJson)}</pre></div>
+          <div class="result-actions">
+            <button id="cancelScanResult" class="btn-cancel">Cancel</button>
+            <button id="saveScanResult" class="btn-save">Save to Database</button>
           </div>
         `;
         resultDiv.style.display = 'block';
@@ -766,7 +631,7 @@
             const ingestResp = await fetch('/api/upload/ingest', { method: 'POST', body: ingestForm });
             const ingestData = await ingestResp.json();
             if (ingestData.success) {
-              resultDiv.innerHTML = `<div class="scan-result"><div class="result-header" style="background:rgba(34,197,94,0.2);">✅ Saved! Document indexed and ready for queries.</div></div>`;
+              resultDiv.innerHTML = `<div class="result-header" style="background:rgba(34,197,94,0.2);">✅ Saved! Document indexed.</div>`;
               scanSelectedFile = null;
               document.getElementById('scanDropLabel').textContent = 'Drop PDF here or click to browse';
               document.getElementById('scanPlanName').value = '';
@@ -776,7 +641,7 @@
               loadIngestedDocs();
             } else throw new Error(ingestData.error);
           } catch (err) {
-            resultDiv.innerHTML = `<div class="scan-result"><div class="result-header" style="background:rgba(239,68,68,0.2);">❌ Save failed: ${err.message}</div></div>`;
+            resultDiv.innerHTML = `<div class="result-header" style="background:rgba(239,68,68,0.2);">❌ Save failed: ${err.message}</div>`;
           }
           saveBtn.disabled = false;
         };
@@ -787,12 +652,11 @@
       } catch (err) {
         progress.style.display = 'none';
         resultDiv.style.display = 'block';
-        resultDiv.innerHTML = `<div class="scan-result"><div class="result-header" style="background:rgba(239,68,68,0.2);">❌ Scan failed: ${err.message}</div></div>`;
+        resultDiv.innerHTML = `<div class="result-header" style="background:rgba(239,68,68,0.2);">❌ Scan failed: ${err.message}</div>`;
         btn.disabled = false;
       }
     }
 
-    // EVENT LISTENERS
     document.getElementById('carrierFilter').addEventListener('change', renderPlans);
     document.getElementById('sortBy').addEventListener('change', renderPlans);
     document.getElementById('searchPlans').addEventListener('input', renderPlans);
