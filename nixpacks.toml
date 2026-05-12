@@ -1,0 +1,2 @@
+[phases.setup]
+nixPkgs = ["nodejs", "poppler_utils"]
