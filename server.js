@@ -6,7 +6,6 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Your exact database URL (hardcoded to avoid env issues)
 const DATABASE_URL = 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
 
 const pool = new Pool({
@@ -14,7 +13,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Auto-create documents table
 pool.query(`
   CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
@@ -31,7 +29,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 app.use(express.json());
 
-// Helper: check if buffer contains null bytes (binary)
 function containsNullBytes(buffer) {
   for (let i = 0; i < Math.min(buffer.length, 4096); i++) {
     if (buffer[i] === 0) return true;
@@ -39,13 +36,12 @@ function containsNullBytes(buffer) {
   return false;
 }
 
-// Embedded HTML interface
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Medicare Assistant</title>
+    <title>Medicare Document Assistant</title>
     <style>
         body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
         #chat { border: 1px solid #ccc; height: 400px; overflow-y: auto; padding: 10px; margin-bottom: 10px; background: #f9f9f9; }
@@ -57,9 +53,9 @@ app.get('/', (req, res) => {
     </style>
 </head>
 <body>
-    <h1>📄 Medicare Document Q&A (Conversational)</h1>
+    <h1>📄 Medicare Document Q&A (Strictly from your documents)</h1>
     <div id="chat"></div>
-    <input type="text" id="question" placeholder="Ask anything..." style="width: 70%">
+    <input type="text" id="question" placeholder="Ask about your uploaded documents..." style="width: 70%">
     <button onclick="ask()">Send</button>
     <hr>
     <h3>📤 Upload Document (TXT files only)</h3>
@@ -134,7 +130,6 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Debug endpoint
 app.get('/api/debug', async (req, res) => {
   try {
     const countRes = await pool.query('SELECT COUNT(*) FROM documents');
@@ -144,7 +139,7 @@ app.get('/api/debug', async (req, res) => {
   }
 });
 
-// Conversational chat endpoint
+// STRICT DOCUMENT-ONLY CHAT (no general knowledge)
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
@@ -153,18 +148,22 @@ app.post('/api/chat', async (req, res) => {
     const docs = await pool.query(
       `SELECT filename, content FROM documents 
        WHERE content ILIKE $1 OR filename ILIKE $1 
-       LIMIT 3`,
+       LIMIT 5`,
       [`%${message}%`]
     );
 
-    let context = '';
-    if (docs.rows.length > 0) {
-      context = docs.rows.map(d => `[${d.filename}]: ${d.content.substring(0, 1500)}`).join('\n\n');
+    if (docs.rows.length === 0) {
+      return res.json({ reply: "I don't have any documents that answer that. Please upload a document containing that information." });
     }
 
-    const systemPrompt = context 
-      ? `You are a helpful assistant. Use the following documents to answer the user's question if relevant. If the answer is not in the documents, say so, but you can also chat normally. Be friendly and concise.\n\nDocuments:\n${context}`
-      : `You are a helpful assistant. The user has no documents uploaded yet, so just chat normally. Be friendly and helpful.`;
+    const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
+
+    const systemPrompt = `You are a strict document-based assistant. Answer the user's question using ONLY the text below. 
+If the answer is not explicitly stated in the documents, say "I don't have that information in my documents." 
+Do NOT use any outside knowledge, including general facts about savings plans, investments, or Medicare beyond what is written.
+
+Documents:
+${context}`;
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -172,7 +171,7 @@ app.post('/api/chat', async (req, res) => {
         { role: 'user', content: message }
       ],
       model: 'llama-3.1-8b-instant',
-      temperature: 0.7,
+      temperature: 0.3,
       max_tokens: 1024,
     });
 
@@ -183,41 +182,24 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Upload endpoint with binary detection and sanitization
+// Upload endpoint with strict validation
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const filename = req.file.originalname;
-
-    // Only allow .txt files
     if (!filename.toLowerCase().endsWith('.txt')) {
-      return res.status(400).json({ error: 'Only .txt files are supported. Please create a plain text file using Notepad.' });
+      return res.status(400).json({ error: 'Only .txt files are supported.' });
     }
-
-    // Check for binary content (null bytes)
     if (containsNullBytes(req.file.buffer)) {
-      return res.status(400).json({ error: 'The file contains binary data. Please save it as plain text (UTF-8) using a text editor like Notepad, not Word or PDF.' });
+      return res.status(400).json({ error: 'File contains binary data. Please save as plain text (UTF-8).' });
     }
-
-    // Convert to string and strip non-printable characters
     let content = req.file.buffer.toString('utf-8');
-    content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // remove control chars except tab/newline
-    
-    if (!content.trim()) {
-      return res.status(400).json({ error: 'File is empty or contains only invalid characters.' });
-    }
-
+    content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    if (!content.trim()) return res.status(400).json({ error: 'File is empty.' });
     const result = await pool.query(
       'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
       [filename, content]
     );
-    res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} characters)` });
+    res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} chars)` });
   } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    console.error('Upload error
