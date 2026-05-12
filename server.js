@@ -6,8 +6,8 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Your exact database URL (hardcoded)
-const DATABASE_URL = 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
+// Use environment variable if set, otherwise fallback to hardcoded URL
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -134,11 +134,25 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Debug endpoint to see how many documents are stored
+// Debug endpoint: shows database name and row count
 app.get('/api/debug', async (req, res) => {
   try {
+    const dbName = await pool.query('SELECT current_database() as db');
     const countRes = await pool.query('SELECT COUNT(*) FROM documents');
-    res.json({ documents_count: parseInt(countRes.rows[0].count) });
+    res.json({
+      database: dbName.rows[0].db,
+      documents_count: parseInt(countRes.rows[0].count)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// NEW: List all documents with preview (for debugging)
+app.get('/api/list-docs', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, filename, LEFT(content, 100) as preview FROM documents');
+    res.json({ count: result.rows.length, documents: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
