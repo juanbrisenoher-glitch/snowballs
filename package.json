@@ -1,7 +1,7 @@
 {
-  "name": "groq-medicare-assistant",
-  "version": "1.0.0",
-  "description": "Medicare Q&A with document upload using Groq API",
+  "name": "medicare-document-assistant",
+  "version": "2.0.0",
+  "description": "AI that answers from uploaded PDF/TXT documents",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,8 +9,8 @@
   "dependencies": {
     "express": "^4.18.2",
     "groq-sdk": "^0.5.0",
-    "dotenv": "^16.3.1",
     "multer": "^1.4.5-lts.1",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "pdf-parse": "^1.1.1"
   }
 }
