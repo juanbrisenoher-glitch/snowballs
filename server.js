@@ -39,7 +39,9 @@ function containsNullBytes(buffer) {
   return false;
 }
 
-// Embedded HTML interface
+// ------------------------------------------------------------------
+// Main chat interface (embedded HTML)
+// ------------------------------------------------------------------
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -54,6 +56,8 @@ app.get('/', (req, res) => {
         input, button { padding: 8px; margin: 5px; }
         .status { margin-top: 10px; padding: 5px; color: green; }
         .error { color: red; }
+        .admin-link { margin-top: 20px; text-align: center; }
+        .admin-link a { color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -66,6 +70,7 @@ app.get('/', (req, res) => {
     <input type="file" id="fileInput" accept=".txt">
     <button onclick="uploadDoc()">Upload</button>
     <div id="status" class="status"></div>
+    <div class="admin-link"><a href="/admin">⚙️ Admin – Manage Documents</a></div>
 
     <script>
         async function ask() {
@@ -134,7 +139,149 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Debug endpoint: shows database name and row count
+// ------------------------------------------------------------------
+// Admin dashboard: list, add, delete documents
+// ------------------------------------------------------------------
+app.get('/admin', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, filename, created_at, LEFT(content, 100) as preview FROM documents ORDER BY id');
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin – Manage Documents</title>
+    <style>
+        body { font-family: Arial; max-width: 900px; margin: 0 auto; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+        th { background: #f2f2f2; }
+        button { background: #dc3545; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; }
+        button.delete-all { background: #dc3545; padding: 10px; margin-bottom: 20px; }
+        .form-add { margin: 20px 0; padding: 15px; background: #f9f9f9; border: 1px solid #ccc; }
+        input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>⚙️ Admin – Manage Documents</h1>
+    <div class="form-add">
+        <h3>➕ Add New Document (JSON)</h3>
+        <input type="text" id="newFilename" placeholder="Filename (e.g., SmartSavings.txt)">
+        <textarea id="newContent" rows="5" placeholder="Document content..."></textarea>
+        <button onclick="addDocument()">Add Document</button>
+        <div id="addStatus"></div>
+    </div>
+
+    <button class="delete-all" onclick="deleteAll()">⚠️ Delete ALL Documents</button>
+
+    <h3>📄 Existing Documents</h3>
+    <table>
+        <tr><th>ID</th><th>Filename</th><th>Preview (first 100 chars)</th><th>Created</th><th>Action</th></tr>
+        ${result.rows.map(row => `
+            <tr>
+                <td>${row.id}</td>
+                <td>${escapeHtml(row.filename)}</td>
+                <td>${escapeHtml(row.preview)}...</td>
+                <td>${new Date(row.created_at).toLocaleString()}</td>
+                <td><button onclick="deleteDoc(${row.id})">Delete</button></td>
+            </tr>
+        `).join('')}
+        ${result.rows.length === 0 ? '<tr><td colspan="5">No documents found.</td></tr>' : ''}
+    </table>
+
+    <script>
+        async function addDocument() {
+            const filename = document.getElementById('newFilename').value.trim();
+            const content = document.getElementById('newContent').value.trim();
+            if (!filename || !content) {
+                document.getElementById('addStatus').innerHTML = '<span class="error">Both fields required</span>';
+                return;
+            }
+            const res = await fetch('/api/admin/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, content })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('addStatus').innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                document.getElementById('addStatus').innerHTML = '<span class="error">❌ ' + data.error + '</span>';
+            }
+        }
+        async function deleteDoc(id) {
+            if (!confirm('Delete this document?')) return;
+            const res = await fetch('/api/admin/delete/' + id, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) location.reload();
+            else alert(data.error);
+        }
+        async function deleteAll() {
+            if (!confirm('⚠️ Delete ALL documents? This cannot be undone.')) return;
+            const res = await fetch('/api/admin/delete-all', { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) location.reload();
+            else alert(data.error);
+        }
+        function escapeHtml(str) {
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+    </script>
+</body>
+</html>
+    `);
+  } catch (err) {
+    res.status(500).send('Error loading admin: ' + err.message);
+  }
+});
+
+// Admin API: add document via JSON
+app.post('/api/admin/add', async (req, res) => {
+  const { filename, content } = req.body;
+  if (!filename || !content) return res.status(400).json({ error: 'Filename and content required' });
+  try {
+    const result = await pool.query(
+      'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
+      [filename, content]
+    );
+    res.json({ success: true, id: result.rows[0].id, message: 'Document added' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin API: delete document by ID
+app.delete('/api/admin/delete/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  try {
+    await pool.query('DELETE FROM documents WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin API: delete all documents
+app.delete('/api/admin/delete-all', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM documents');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ------------------------------------------------------------------
+// Debug endpoints
+// ------------------------------------------------------------------
 app.get('/api/debug', async (req, res) => {
   try {
     const dbName = await pool.query('SELECT current_database() as db');
@@ -148,7 +295,6 @@ app.get('/api/debug', async (req, res) => {
   }
 });
 
-// NEW: List all documents with preview (for debugging)
 app.get('/api/list-docs', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, filename, LEFT(content, 100) as preview FROM documents');
@@ -158,13 +304,14 @@ app.get('/api/list-docs', async (req, res) => {
   }
 });
 
-// STRICT DOCUMENT-ONLY CHAT – no outside knowledge
+// ------------------------------------------------------------------
+// STRICT DOCUMENT-ONLY CHAT
+// ------------------------------------------------------------------
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
 
   try {
-    // Search documents for relevant content
     const docs = await pool.query(
       `SELECT filename, content FROM documents 
        WHERE content ILIKE $1 OR filename ILIKE $1 
@@ -176,10 +323,8 @@ app.post('/api/chat', async (req, res) => {
       return res.json({ reply: "I don't have any documents that answer that. Please upload a document containing that information." });
     }
 
-    // Build context from the matched documents (limit to 2000 chars each)
     const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
 
-    // Strict system prompt – answer ONLY from context
     const systemPrompt = `You are a strict document-based assistant. Answer the user's question using ONLY the text below. 
 If the answer is not explicitly stated in the documents, say "I don't have that information in my documents." 
 Do NOT use any outside knowledge, including general facts about savings plans, investments, or Medicare beyond what is written.
@@ -204,7 +349,9 @@ ${context}`;
   }
 });
 
-// Document upload endpoint with binary detection and sanitization
+// ------------------------------------------------------------------
+// File upload endpoint
+// ------------------------------------------------------------------
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -216,7 +363,6 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
       return res.status(400).json({ error: 'File contains binary data. Please save as plain text (UTF-8).' });
     }
     let content = req.file.buffer.toString('utf-8');
-    // Remove problematic control characters
     content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
     if (!content.trim()) return res.status(400).json({ error: 'File is empty.' });
     const result = await pool.query(
