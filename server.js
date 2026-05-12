@@ -7,12 +7,15 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Hardcoded URL – exactly from your Postgres-vgQH variables
+const DATABASE_URL = 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
+
 const pool = new Pool({
-  connectionString: 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway',
+  connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Immediately set schema search path
+// Force schema
 pool.query('SET search_path TO public;').catch(console.error);
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -21,30 +24,53 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 app.use(express.json());
 app.use(express.static('public'));
 
-// Debug endpoint
-app.get('/api/debug-db', async (req, res) => {
+// ------------------------------------------------------------------
+// TEST ENDPOINT – runs a direct SQL query to check table
+// ------------------------------------------------------------------
+app.get('/api/test-db', async (req, res) => {
   try {
-    const db = await pool.query('SELECT current_database() as db');
-    const count = await pool.query('SELECT COUNT(*) FROM public.documents');
-    res.json({ database: db.rows[0].db, documents_count: parseInt(count.rows[0].count) });
+    const dbName = await pool.query('SELECT current_database() as db');
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'documents'
+      ) as exists;
+    `);
+    let rowCount = 0;
+    if (tableCheck.rows[0].exists) {
+      const count = await pool.query('SELECT COUNT(*) FROM public.documents');
+      rowCount = parseInt(count.rows[0].count);
+    }
+    res.json({
+      database: dbName.rows[0].db,
+      table_exists: tableCheck.rows[0].exists,
+      documents_count: rowCount,
+      connection_string_used: DATABASE_URL.substring(0, 40) + '...'
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
-// Chat endpoint (using public.documents)
+// ------------------------------------------------------------------
+// CHAT ENDPOINT (with full schema qualification)
+// ------------------------------------------------------------------
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is required' });
+
   try {
     const result = await pool.query(
       `SELECT filename, content FROM public.documents 
-       WHERE content ILIKE $1 OR filename ILIKE $1 LIMIT 5`,
+       WHERE content ILIKE $1 OR filename ILIKE $1
+       LIMIT 5`,
       [`%${message}%`]
     );
+
     if (result.rows.length === 0) {
       return res.json({ reply: "No matching information in uploaded documents." });
     }
+
     const context = result.rows.map(r => `[${r.filename}]\n${r.content.substring(0,2000)}`).join('\n\n');
     const completion = await groq.chat.completions.create({
       messages: [
@@ -61,7 +87,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Upload endpoint (using public.documents)
+// Upload endpoint
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file' });
