@@ -2,11 +2,12 @@ const express = require('express');
 const Groq = require('groq-sdk');
 const multer = require('multer');
 const { Pool } = require('pg');
+const pdfParse = require('pdf-parse');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Use environment variable if set, otherwise fallback to hardcoded URL
+// Database connection (hardcoded URL, or use environment variable if set)
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
 
 const pool = new Pool({
@@ -14,7 +15,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Auto-create documents table
+// Create documents table if it doesn't exist
 pool.query(`
   CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
@@ -27,22 +28,28 @@ pool.query(`
   .catch(err => console.error('❌ Table creation error:', err));
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }); // 20MB limit for PDFs
 
 app.use(express.json());
 
-function containsNullBytes(buffer) {
-  for (let i = 0; i < Math.min(buffer.length, 4096); i++) {
-    if (buffer[i] === 0) return true;
-  }
-  return false;
+// Helper: extract meaningful keywords from a question (for dynamic search)
+function extractKeywords(text) {
+  const stopWords = new Set([
+    'what', 'does', 'the', 'a', 'an', 'and', 'or', 'of', 'to', 'for', 'in', 'on', 'at', 'with', 'without',
+    'is', 'are', 'was', 'were', 'be', 'by', 'this', 'that', 'these', 'those', 'from', 'as', 'but', 'not',
+    'so', 'such', 'which', 'who', 'whom', 'whose', 'has', 'have', 'had', 'can', 'could', 'will', 'would',
+    'should', 'do', 'does', 'did', 'cover', 'covers', 'covered', 'tell', 'explain', 'describe', 'please', 'about'
+  ]);
+  const words = text.toLowerCase().split(/[^\w-]+/);
+  const keywords = words.filter(w => w.length > 2 && !stopWords.has(w));
+  return keywords;
 }
 
-// ---------- Main chat interface ----------
+// ---------- Main chat interface (HTML with PDF upload support) ----------
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
-<head><title>Medicare Assistant</title>
+<head><title>Medicare Document Assistant</title>
 <style>
 body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
 #chat { border: 1px solid #ccc; height: 400px; overflow-y: auto; padding: 10px; margin-bottom: 10px; background: #f9f9f9; }
@@ -55,13 +62,13 @@ input, button { padding: 8px; margin: 5px; }
 </style>
 </head>
 <body>
-<h1>📄 Medicare Document Q&A</h1>
+<h1>📄 Medicare Document Q&A (PDF/TXT)</h1>
 <div id="chat"></div>
 <input type="text" id="question" placeholder="Ask about your documents..." style="width: 70%">
 <button onclick="ask()">Send</button>
 <hr>
-<h3>📤 Upload Document (TXT only)</h3>
-<input type="file" id="fileInput" accept=".txt">
+<h3>📤 Upload Document (PDF or TXT)</h3>
+<input type="file" id="fileInput" accept=".txt,.pdf">
 <button onclick="uploadDoc()">Upload</button>
 <div id="status" class="status"></div>
 <div class="admin-link"><a href="/admin">⚙️ Admin – Manage Documents</a></div>
@@ -92,8 +99,9 @@ function addMessage(text, isUser) {
 }
 async function uploadDoc() {
   const file = document.getElementById('fileInput').files[0];
-  if (!file) return showStatus('Select a .txt file', 'error');
-  if (!file.name.endsWith('.txt')) return showStatus('Only .txt files', 'error');
+  if (!file) return showStatus('Select a .txt or .pdf file', 'error');
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext !== 'txt' && ext !== 'pdf') return showStatus('Only .txt or .pdf files', 'error');
   const fd = new FormData();
   fd.append('document', file);
   showStatus('Uploading...');
@@ -115,7 +123,7 @@ function showStatus(msg, type) {
 </html>`);
 });
 
-// ---------- Admin dashboard ----------
+// ---------- Admin dashboard (same as before, but works) ----------
 app.get('/admin', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, filename, created_at, LEFT(content, 100) as preview FROM documents ORDER BY id');
@@ -156,15 +164,16 @@ input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
 <body>
 <h1>⚙️ Admin – Manage Documents</h1>
 <div class="form-add">
-  <h3>➕ Add New Document</h3>
-  <input type="text" id="newFilename" placeholder="Filename (e.g., SmartSavings.txt)">
+  <h3>➕ Add New Document (JSON)</h3>
+  <input type="text" id="newFilename" placeholder="Filename (e.g., plan.pdf)">
   <textarea id="newContent" rows="5" placeholder="Document content..."></textarea>
   <button onclick="addDocument()">Add Document</button>
   <div id="addStatus"></div>
 </div>
 <button class="delete-all" onclick="deleteAll()">⚠️ Delete ALL Documents</button>
 <h3>📄 Existing Documents</h3>
-<table><tr><th>ID</th><th>Filename</th><th>Preview</th><th>Created</th><th>Action</th></tr>
+<table>
+<tr><th>ID</th><th>Filename</th><th>Preview</th><th>Created</th><th>Action</th></tr>
 ${rowsHtml || '<tr><td colspan="5">No documents found.</td></tr>'}
 </table>
 <script>
@@ -208,7 +217,7 @@ async function deleteAll() {
   }
 });
 
-// ---------- Admin API ----------
+// Admin API endpoints
 app.post('/api/admin/add', async (req, res) => {
   const { filename, content } = req.body;
   if (!filename || !content) return res.status(400).json({ error: 'Filename and content required' });
@@ -238,7 +247,7 @@ app.delete('/api/admin/delete-all', async (req, res) => {
   }
 });
 
-// ---------- Debug endpoints ----------
+// Debug endpoints
 app.get('/api/debug', async (req, res) => {
   try {
     const dbName = await pool.query('SELECT current_database() as db');
@@ -257,28 +266,42 @@ app.get('/api/list-docs', async (req, res) => {
   }
 });
 
-// ---------- SIMPLIFIED CHAT ENDPOINT (hardcoded to find any document containing "SmartSavings") ----------
+// ---------- DYNAMIC CHAT ENDPOINT (searches by keywords from the user's question) ----------
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
 
   try {
-    // Hardcoded search for "SmartSavings" – returns the first document that contains that word
-    const docs = await pool.query(
-      `SELECT filename, content FROM documents 
-       WHERE content ILIKE '%SmartSavings%' 
-       LIMIT 1`
-    );
+    // Extract keywords from the question (e.g., "What does SmartSavings cover?" -> ["SmartSavings"])
+    const keywords = extractKeywords(message);
+    let docs = { rows: [] };
 
-    if (docs.rows.length === 0) {
-      return res.json({ reply: "No document found with 'SmartSavings'. Please upload a document that contains that plan name." });
+    if (keywords.length > 0) {
+      // Build OR condition for each keyword (search in content and filename)
+      const conditions = keywords.map((kw, i) => `(content ILIKE $${i+1} OR filename ILIKE $${i+1})`).join(' OR ');
+      const values = keywords.map(kw => `%${kw}%`);
+      const query = `SELECT filename, content FROM documents WHERE ${conditions} LIMIT 3`;
+      docs = await pool.query(query, values);
     }
 
-    const doc = docs.rows[0];
-    const context = `[${doc.filename}]:\n${doc.content.substring(0, 2000)}`;
+    // Fallback: if no keywords or no matches, try matching the whole phrase
+    if (docs.rows.length === 0 && message.length > 3) {
+      docs = await pool.query(
+        `SELECT filename, content FROM documents WHERE content ILIKE $1 OR filename ILIKE $1 LIMIT 3`,
+        [`%${message}%`]
+      );
+    }
+
+    if (docs.rows.length === 0) {
+      return res.json({ reply: "No documents found that match your question. Please upload relevant PDF or TXT files." });
+    }
+
+    // Build context from the matched documents (limit to 2000 chars each)
+    const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
 
     const systemPrompt = `You are a strict document-based assistant. Answer the user's question using ONLY the text below. 
-If the answer is not explicitly stated, say "I don't have that information." 
+If the answer is not explicitly stated in the documents, say "I don't have that information in my documents." 
+Do NOT use any outside knowledge. 
 
 Documents:
 ${context}`;
@@ -300,24 +323,39 @@ ${context}`;
   }
 });
 
-// ---------- File upload ----------
+// ---------- UPLOAD ENDPOINT (supports .txt and .pdf) ----------
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const filename = req.file.originalname;
-    if (!filename.toLowerCase().endsWith('.txt')) {
-      return res.status(400).json({ error: 'Only .txt files are supported.' });
+    const ext = filename.split('.').pop().toLowerCase();
+    let content = '';
+
+    if (ext === 'txt') {
+      content = req.file.buffer.toString('utf-8');
+      content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // strip control chars
+    } else if (ext === 'pdf') {
+      try {
+        const pdfData = await pdfParse(req.file.buffer);
+        content = pdfData.text;
+      } catch (pdfErr) {
+        return res.status(400).json({ error: 'Failed to parse PDF: ' + pdfErr.message });
+      }
+    } else {
+      return res.status(400).json({ error: 'Only .txt or .pdf files are supported.' });
     }
-    if (containsNullBytes(req.file.buffer)) {
-      return res.status(400).json({ error: 'File contains binary data. Save as plain text.' });
+
+    if (!content.trim()) {
+      return res.status(400).json({ error: 'File contains no readable text.' });
     }
-    let content = req.file.buffer.toString('utf-8');
-    content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-    if (!content.trim()) return res.status(400).json({ error: 'File is empty.' });
-    const result = await pool.query('INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id', [filename, content]);
+
+    const result = await pool.query(
+      'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
+      [filename, content]
+    );
     res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} chars)` });
   } catch (err) {
-    console.error(err);
+    console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
