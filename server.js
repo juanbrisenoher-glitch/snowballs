@@ -36,7 +36,7 @@ async function getAllDocsSummary() {
   return result.rows.map(d => `- ${d.filename}: ${d.snippet}...`).join('\n');
 }
 
-// Chat endpoint – intelligent fallback
+// ---------- CHAT ENDPOINT (handles generic questions like "do you have any plans") ----------
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
@@ -49,19 +49,16 @@ app.post('/api/chat', async (req, res) => {
       [searchTerm]
     );
 
-    let context = '';
-    let allDocsSummary = '';
-
     if (docs.rows.length === 0) {
       // No direct match – get all documents for a generic answer
-      allDocsSummary = await getAllDocsSummary();
+      const allDocsSummary = await getAllDocsSummary();
       if (!allDocsSummary) {
         return res.json({ reply: "No documents have been uploaded yet. Please upload a PDF or TXT file." });
       }
-      // Use a special prompt for generic questions
+      // Use a prompt that answers generically
       const completion = await groq.chat.completions.create({
         messages: [
-          { role: 'system', content: `You are a helpful assistant. The user asked: "${message}". Based on the following documents, answer the question. If the question is general (e.g., "do you have any plans"), list the plan names and a brief description from the documents. Be concise.\n\nDocuments:\n${allDocsSummary}` },
+          { role: 'system', content: `You are a helpful assistant. The user asked: "${message}". Based on the following documents, answer the question. If the question is general (e.g., "do you have any plans"), list the plan names and a brief description from the documents. Be concise and friendly.\n\nDocuments:\n${allDocsSummary}` },
           { role: 'user', content: message }
         ],
         model: 'llama-3.1-8b-instant',
@@ -72,7 +69,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // If we have matching documents, use them strictly
-    context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
+    const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
     const completion = await groq.chat.completions.create({
       messages: [
         { role: 'system', content: `Answer the user's question using ONLY the text below. If not found, say "I don't have that information."\n\nDocuments:\n${context}` },
@@ -89,7 +86,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Upload endpoint (PDF/TXT)
+// ---------- UPLOAD ENDPOINT (PDF/TXT) ----------
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -103,9 +100,9 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
       const pdfData = await pdfParse(req.file.buffer);
       content = pdfData.text;
     } else {
-      return res.status(400).json({ error: 'Only .txt or .pdf' });
+      return res.status(400).json({ error: 'Only .txt or .pdf files are supported.' });
     }
-    if (!content.trim()) return res.status(400).json({ error: 'No readable text' });
+    if (!content.trim()) return res.status(400).json({ error: 'File contains no readable text.' });
     const result = await pool.query('INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id', [filename, content]);
     res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} chars)` });
   } catch (err) {
@@ -114,7 +111,141 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
   }
 });
 
-// Simple HTML frontend (same as before)
+// ---------- ADMIN PAGE (list, add, delete documents) ----------
+app.get('/admin', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, filename, created_at, LEFT(content, 100) as preview FROM documents ORDER BY id');
+    const escapeHtml = (str) => {
+      if (!str) return '';
+      return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+      });
+    };
+    const rowsHtml = result.rows.map(row => `
+      <tr>
+        <td>${row.id}</td>
+        <td>${escapeHtml(row.filename)}</td>
+        <td>${escapeHtml(row.preview)}...${row.preview ? '' : ''}</td>
+        <td>${new Date(row.created_at).toLocaleString()}</td>
+        <td><button onclick="deleteDoc(${row.id})">Delete</button></td>
+      </tr>
+    `).join('');
+    res.send(`<!DOCTYPE html>
+<html>
+<head><title>Admin – Documents</title>
+<style>
+body { font-family: Arial; max-width: 900px; margin: 0 auto; padding: 20px; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+th { background: #f2f2f2; }
+button { background: #dc3545; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; }
+button.delete-all { background: #dc3545; padding: 10px; margin-bottom: 20px; }
+.form-add { margin: 20px 0; padding: 15px; background: #f9f9f9; border: 1px solid #ccc; }
+input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
+.success { color: green; }
+.error { color: red; }
+</style>
+</head>
+<body>
+<h1>⚙️ Admin – Manage Documents</h1>
+<div class="form-add">
+  <h3>➕ Add New Document (JSON)</h3>
+  <input type="text" id="newFilename" placeholder="Filename (e.g., plan.pdf)">
+  <textarea id="newContent" rows="5" placeholder="Document content..."></textarea>
+  <button onclick="addDocument()">Add Document</button>
+  <div id="addStatus"></div>
+</div>
+<button class="delete-all" onclick="deleteAll()">⚠️ Delete ALL Documents</button>
+<h3>📄 Existing Documents</h3>
+<table>
+<tr><th>ID</th><th>Filename</th><th>Preview</th><th>Created</th><th>Action</th></tr>
+${rowsHtml || '<tr><td colspan="5">No documents found.</td></tr>'}
+</table>
+<script>
+async function addDocument() {
+  const filename = document.getElementById('newFilename').value.trim();
+  const content = document.getElementById('newContent').value.trim();
+  if (!filename || !content) {
+    document.getElementById('addStatus').innerHTML = '<span class="error">Both fields required</span>';
+    return;
+  }
+  const res = await fetch('/api/admin/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, content })
+  });
+  const data = await res.json();
+  if (res.ok) {
+    document.getElementById('addStatus').innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+    setTimeout(() => location.reload(), 1000);
+  } else {
+    document.getElementById('addStatus').innerHTML = '<span class="error">❌ ' + data.error + '</span>';
+  }
+}
+async function deleteDoc(id) {
+  if (!confirm('Delete this document?')) return;
+  const res = await fetch('/api/admin/delete/' + id, { method: 'DELETE' });
+  if (res.ok) location.reload();
+  else alert('Delete failed');
+}
+async function deleteAll() {
+  if (!confirm('⚠️ Delete ALL documents? This cannot be undone.')) return;
+  const res = await fetch('/api/admin/delete-all', { method: 'DELETE' });
+  if (res.ok) location.reload();
+  else alert('Delete failed');
+}
+</script>
+</body>
+</html>`);
+  } catch (err) {
+    res.status(500).send('Error loading admin: ' + err.message);
+  }
+});
+
+// Admin API endpoints
+app.post('/api/admin/add', async (req, res) => {
+  const { filename, content } = req.body;
+  if (!filename || !content) return res.status(400).json({ error: 'Filename and content required' });
+  try {
+    const result = await pool.query('INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id', [filename, content]);
+    res.json({ success: true, id: result.rows[0].id, message: 'Document added' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.delete('/api/admin/delete/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  try {
+    await pool.query('DELETE FROM documents WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.delete('/api/admin/delete-all', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM documents');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- DEBUG ENDPOINTS ----------
+app.get('/api/list-docs', async (req, res) => {
+  const docs = await pool.query('SELECT id, filename, LEFT(content, 200) as preview FROM documents');
+  res.json(docs.rows);
+});
+app.get('/api/debug', async (req, res) => {
+  const count = await pool.query('SELECT COUNT(*) FROM documents');
+  res.json({ count: parseInt(count.rows[0].count) });
+});
+
+// ---------- MAIN HTML PAGE (with admin link) ----------
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
@@ -127,6 +258,7 @@ body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
 input, button { padding:8px; margin:5px; }
 .status { margin-top:10px; padding:5px; color:green; }
 .error { color:red; }
+.admin-link { margin-top:20px; text-align:center; }
 </style>
 </head>
 <body>
@@ -139,6 +271,7 @@ input, button { padding:8px; margin:5px; }
 <input type="file" id="fileInput" accept=".txt,.pdf">
 <button onclick="uploadDoc()">Upload</button>
 <div id="status"></div>
+<div class="admin-link"><a href="/admin">⚙️ Admin – Manage Documents</a></div>
 <script>
 async function ask() {
   const q = document.getElementById('question').value;
@@ -171,11 +304,6 @@ async function uploadDoc() {
 </script>
 </body>
 </html>`);
-});
-
-app.get('/api/list-docs', async (req, res) => {
-  const docs = await pool.query('SELECT id, filename, LEFT(content, 200) as preview FROM documents');
-  res.json(docs.rows);
 });
 
 app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
