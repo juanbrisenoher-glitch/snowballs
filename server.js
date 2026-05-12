@@ -30,46 +30,52 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 
 app.use(express.json());
 
-// ---------- Simple search: just look for the exact question words ----------
+// Helper to get a summary of all documents (for generic questions)
+async function getAllDocsSummary() {
+  const result = await pool.query('SELECT filename, LEFT(content, 500) as snippet FROM documents LIMIT 10');
+  return result.rows.map(d => `- ${d.filename}: ${d.snippet}...`).join('\n');
+}
+
+// Chat endpoint – intelligent fallback
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
 
   try {
-    // 1. Try to find documents where content contains any part of the question
+    // First, try to find documents relevant to the question
     const searchTerm = `%${message}%`;
     let docs = await pool.query(
       `SELECT filename, content FROM documents WHERE content ILIKE $1 OR filename ILIKE $1 LIMIT 3`,
       [searchTerm]
     );
 
-    // 2. If no results, try each word individually
+    let context = '';
+    let allDocsSummary = '';
+
     if (docs.rows.length === 0) {
-      const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      if (words.length > 0) {
-        const conditions = words.map((_, i) => `(content ILIKE $${i+1} OR filename ILIKE $${i+1})`).join(' OR ');
-        const values = words.map(w => `%${w}%`);
-        docs = await pool.query(`SELECT filename, content FROM documents WHERE ${conditions} LIMIT 3`, values);
+      // No direct match – get all documents for a generic answer
+      allDocsSummary = await getAllDocsSummary();
+      if (!allDocsSummary) {
+        return res.json({ reply: "No documents have been uploaded yet. Please upload a PDF or TXT file." });
       }
+      // Use a special prompt for generic questions
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: `You are a helpful assistant. The user asked: "${message}". Based on the following documents, answer the question. If the question is general (e.g., "do you have any plans"), list the plan names and a brief description from the documents. Be concise.\n\nDocuments:\n${allDocsSummary}` },
+          { role: 'user', content: message }
+        ],
+        model: 'llama-3.1-8b-instant',
+        temperature: 0.5,
+        max_tokens: 500,
+      });
+      return res.json({ reply: completion.choices[0].message.content });
     }
 
-    // 3. If still nothing, return a helpful message showing what documents exist
-    if (docs.rows.length === 0) {
-      const allDocs = await pool.query('SELECT id, filename, LEFT(content, 200) as preview FROM documents');
-      if (allDocs.rows.length === 0) {
-        return res.json({ reply: "No documents found in the database. Please upload a PDF or TXT file using the 'Upload Document' button above." });
-      } else {
-        const list = allDocs.rows.map(d => `- ${d.filename}: ${d.preview}...`).join('\n');
-        return res.json({ reply: `Your question didn't match any documents. Here are the documents currently in the system:\n\n${list}\n\nTry asking about one of those filenames or key phrases.` });
-      }
-    }
-
-    // Build context and ask Groq
-    const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
-    const systemPrompt = `Answer the user's question using ONLY the text below. If not found, say "I don't have that information."\n\nDocuments:\n${context}`;
+    // If we have matching documents, use them strictly
+    context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
     const completion = await groq.chat.completions.create({
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: `Answer the user's question using ONLY the text below. If not found, say "I don't have that information."\n\nDocuments:\n${context}` },
         { role: 'user', content: message }
       ],
       model: 'llama-3.1-8b-instant',
@@ -83,7 +89,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ---------- Upload endpoint (supports PDF and TXT) ----------
+// Upload endpoint (PDF/TXT)
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -108,7 +114,7 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
   }
 });
 
-// ---------- Simple HTML frontend (with upload) ----------
+// Simple HTML frontend (same as before)
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
