@@ -17,6 +17,7 @@ const pool = new Pool({
 });
 
 async function initDB() {
+  // Create table if it doesn't exist at all
   await pool.query(`
     CREATE TABLE IF NOT EXISTS documents (
       id          SERIAL PRIMARY KEY,
@@ -28,9 +29,24 @@ async function initDB() {
       created_at  TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  // Patch existing tables that are missing the new columns — safe to run every deploy
+  await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS plan_name   TEXT`);
+  await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS chunk_index INTEGER DEFAULT 0`);
+  await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS tsv         TSVECTOR`);
+
+  // Full-text search index
   await pool.query(`
     CREATE INDEX IF NOT EXISTS documents_tsv_idx ON documents USING GIN(tsv)
   `);
+
+  // Backfill tsv for rows uploaded before this fix
+  await pool.query(`
+    UPDATE documents
+    SET tsv = to_tsvector('english', content)
+    WHERE tsv IS NULL AND content IS NOT NULL
+  `);
+
   console.log('✅ documents table ready');
 }
 initDB().catch(err => console.error('❌ DB init error:', err));
@@ -44,7 +60,7 @@ app.use(express.json());
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 // Extract text using pdftotext -layout (preserves table columns).
-// Falls back to pdf-parse if poppler isn't installed yet.
+// Falls back to pdf-parse automatically if poppler isn't installed.
 function extractPdfText(buffer) {
   const tmpFile = `/tmp/upload_${Date.now()}.pdf`;
   try {
@@ -55,7 +71,7 @@ function extractPdfText(buffer) {
     }).toString('utf-8');
     return text;
   } catch (err) {
-    console.warn('⚠️  pdftotext failed, falling back to pdf-parse:', err.message);
+    console.warn('⚠️  pdftotext not available, falling back to pdf-parse:', err.message);
     return null;
   } finally {
     try { fs.unlinkSync(tmpFile); } catch (_) {}
@@ -63,7 +79,6 @@ function extractPdfText(buffer) {
 }
 
 // Paragraph-aware chunking — keeps table rows and bullet points whole.
-// Never cuts in the middle of a line.
 function chunkByParagraph(text, maxSize = 700, overlap = 80) {
   const normalized = text.replace(/\n{3,}/g, '\n\n').trim();
   const paragraphs = normalized.split(/\n\n+/);
@@ -79,7 +94,6 @@ function chunkByParagraph(text, maxSize = 700, overlap = 80) {
         chunks.push(current.trim());
         current = current.slice(-overlap) + '\n\n' + para;
       } else {
-        // Single paragraph bigger than maxSize — hard split
         for (let i = 0; i < para.length; i += maxSize - overlap) {
           chunks.push(para.slice(i, i + maxSize).trim());
         }
@@ -138,19 +152,17 @@ app.post('/api/chat', async (req, res) => {
     const allPlans = await pool.query(
       'SELECT DISTINCT plan_name FROM documents WHERE plan_name IS NOT NULL ORDER BY plan_name'
     );
-    const planNames    = allPlans.rows.map(r => r.plan_name);
+    const planNames     = allPlans.rows.map(r => r.plan_name);
     const mentionedPlan = planNames.find(p =>
       message.toLowerCase().includes(p.toLowerCase())
     );
 
     if (mentionedPlan) console.log(`🎯 Question targets plan: ${mentionedPlan}`);
 
-    // OR search — any keyword can match, ranked by relevance
     const tsQuery = keywords.join(' | ');
     let chunks = [];
 
     if (mentionedPlan) {
-      // Only search chunks from that specific plan
       const result = await pool.query(
         `SELECT filename, plan_name, chunk_index, content,
                 ts_rank(tsv, to_tsquery('english', $1)) AS rank
@@ -162,7 +174,6 @@ app.post('/api/chat', async (req, res) => {
       );
       chunks = result.rows;
 
-      // Fallback: just return first chunks of that plan if keyword search found nothing
       if (chunks.length === 0) {
         const fallback = await pool.query(
           `SELECT filename, plan_name, chunk_index, content
@@ -173,7 +184,6 @@ app.post('/api/chat', async (req, res) => {
         chunks = fallback.rows;
       }
     } else {
-      // No specific plan mentioned — search across all plans (good for comparisons)
       const result = await pool.query(
         `SELECT filename, plan_name, chunk_index, content,
                 ts_rank(tsv, to_tsquery('english', $1)) AS rank
@@ -185,9 +195,10 @@ app.post('/api/chat', async (req, res) => {
       chunks = result.rows;
     }
 
-    // Absolute last resort
     if (chunks.length === 0) {
-      const fallback = await pool.query('SELECT filename, plan_name, chunk_index, content FROM documents LIMIT 4');
+      const fallback = await pool.query(
+        'SELECT filename, plan_name, chunk_index, content FROM documents LIMIT 4'
+      );
       chunks = fallback.rows;
     }
 
@@ -195,7 +206,6 @@ app.post('/api/chat', async (req, res) => {
       return res.json({ reply: "No documents uploaded yet. Upload a plan PDF to get started." });
     }
 
-    // Cap each chunk at 500 chars → ~2000 chars total context (~500 tokens)
     const context = chunks
       .map(c => `[Plan: ${c.plan_name || c.filename} | Part ${c.chunk_index + 1}]\n${c.content.substring(0, 500)}`)
       .join('\n\n---\n\n');
@@ -256,7 +266,6 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
       // Try pdftotext first — much better for tables and columns
       rawText = extractPdfText(req.file.buffer);
       if (!rawText) {
-        // Fallback to pdf-parse
         const pdfData = await pdfParse(req.file.buffer);
         rawText = pdfData.text;
       }
@@ -268,10 +277,11 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
       return res.status(400).json({ error: 'File has no readable text. It may be a scanned image PDF.' });
     }
 
-    // Remove old chunks for this plan+file before re-uploading
-    await pool.query('DELETE FROM documents WHERE filename = $1 AND plan_name = $2', [filename, planName]);
+    await pool.query(
+      'DELETE FROM documents WHERE filename = $1 AND plan_name = $2',
+      [filename, planName]
+    );
 
-    // Paragraph-aware chunking keeps table rows and lists intact
     const chunks = chunkByParagraph(rawText, 700, 80);
     console.log(`📦 "${planName}" (${filename}): ${rawText.length} chars → ${chunks.length} chunks`);
 
@@ -342,7 +352,7 @@ label{font-size:13px;font-weight:bold;color:#333}
 <div class="upload-box">
   <h3 style="margin-top:0">📤 Upload Plan Document</h3>
   <label>Plan Name (be specific — agents will ask by this exact name)</label>
-  <input type="text" id="planName" placeholder='e.g. "Humana Gold Plus HMO 2025" or "Molina Medicare Complete Care"'>
+  <input type="text" id="planName" placeholder='e.g. "Humana Gold Plus HMO 2025"'>
   <label>Document (PDF or TXT)</label>
   <input type="file" id="fileInput" accept=".pdf,.txt">
   <button class="upload-btn" onclick="uploadDoc()">Upload</button>
