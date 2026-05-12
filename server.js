@@ -7,6 +7,7 @@ const pdfParse = require('pdf-parse');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Database connection (hardcoded from your Railway Postgres)
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
 
 const pool = new Pool({
@@ -14,6 +15,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Ensure documents table exists
 pool.query(`
   CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
@@ -30,54 +32,55 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 
 app.use(express.json());
 
-// Helper to get a summary of all documents (for generic questions)
+// Helper: get a summary of all documents (for generic questions)
 async function getAllDocsSummary() {
-  const result = await pool.query('SELECT filename, LEFT(content, 500) as snippet FROM documents LIMIT 10');
+  const result = await pool.query('SELECT filename, LEFT(content, 800) as snippet FROM documents LIMIT 10');
   return result.rows.map(d => `- ${d.filename}: ${d.snippet}...`).join('\n');
 }
 
-// ---------- CHAT ENDPOINT (handles generic questions like "do you have any plans") ----------
+// ------------------------------------------------------------------
+// CHAT ENDPOINT – handles OTC category extraction and generic questions
+// ------------------------------------------------------------------
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
 
   try {
-    // First, try to find documents relevant to the question
+    // Search for documents matching the question
     const searchTerm = `%${message}%`;
     let docs = await pool.query(
       `SELECT filename, content FROM documents WHERE content ILIKE $1 OR filename ILIKE $1 LIMIT 3`,
       [searchTerm]
     );
 
+    // If no direct match, use all documents but with a smart prompt
     if (docs.rows.length === 0) {
-      // No direct match – get all documents for a generic answer
       const allDocsSummary = await getAllDocsSummary();
       if (!allDocsSummary) {
         return res.json({ reply: "No documents have been uploaded yet. Please upload a PDF or TXT file." });
       }
-      // Use a prompt that answers generically
       const completion = await groq.chat.completions.create({
         messages: [
-          { role: 'system', content: `You are a helpful assistant. The user asked: "${message}". Based on the following documents, answer the question. If the question is general (e.g., "do you have any plans"), list the plan names and a brief description from the documents. Be concise and friendly.\n\nDocuments:\n${allDocsSummary}` },
+          { role: 'system', content: `You are a helpful assistant. The user asked: "${message}". Based on the following documents, answer the question. If the question asks about "OTC items" or "over-the-counter products", extract and list the product categories found in the documents (e.g., Allergy, First Aid, Vitamins, Compression Support, etc.). Use bullet points if helpful. Be specific and concise.\n\nDocuments:\n${allDocsSummary}` },
           { role: 'user', content: message }
         ],
         model: 'llama-3.1-8b-instant',
         temperature: 0.5,
-        max_tokens: 500,
+        max_tokens: 800,
       });
       return res.json({ reply: completion.choices[0].message.content });
     }
 
-    // If we have matching documents, use them strictly
+    // For documents that match, use strict context but instruct category extraction for OTC questions
     const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
     const completion = await groq.chat.completions.create({
       messages: [
-        { role: 'system', content: `Answer the user's question using ONLY the text below. If not found, say "I don't have that information."\n\nDocuments:\n${context}` },
+        { role: 'system', content: `You are a strict document-based assistant. Answer the user's question using ONLY the text below. If the question asks about "OTC items" or "over-the-counter products", extract and list product categories (e.g., Allergy, First Aid, Compression Support, Sleep Aids, Vitamins, etc.) directly from the document. If the answer is not explicitly stated, say "I don't have that information."\n\nDocuments:\n${context}` },
         { role: 'user', content: message }
       ],
       model: 'llama-3.1-8b-instant',
       temperature: 0.3,
-      max_tokens: 1024,
+      max_tokens: 800,
     });
     res.json({ reply: completion.choices[0].message.content });
   } catch (err) {
@@ -86,13 +89,16 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ---------- UPLOAD ENDPOINT (PDF/TXT) ----------
+// ------------------------------------------------------------------
+// UPLOAD ENDPOINT – accepts PDF and TXT, extracts text
+// ------------------------------------------------------------------
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const filename = req.file.originalname;
     const ext = filename.split('.').pop().toLowerCase();
     let content = '';
+
     if (ext === 'txt') {
       content = req.file.buffer.toString('utf-8');
       content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -102,8 +108,13 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
     } else {
       return res.status(400).json({ error: 'Only .txt or .pdf files are supported.' });
     }
+
     if (!content.trim()) return res.status(400).json({ error: 'File contains no readable text.' });
-    const result = await pool.query('INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id', [filename, content]);
+
+    const result = await pool.query(
+      'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
+      [filename, content]
+    );
     res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} chars)` });
   } catch (err) {
     console.error(err);
@@ -111,7 +122,9 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
   }
 });
 
-// ---------- ADMIN PAGE (list, add, delete documents) ----------
+// ------------------------------------------------------------------
+// ADMIN PAGE – manage documents
+// ------------------------------------------------------------------
 app.get('/admin', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, filename, created_at, LEFT(content, 100) as preview FROM documents ORDER BY id');
@@ -128,7 +141,7 @@ app.get('/admin', async (req, res) => {
       <tr>
         <td>${row.id}</td>
         <td>${escapeHtml(row.filename)}</td>
-        <td>${escapeHtml(row.preview)}...${row.preview ? '' : ''}</td>
+        <td>${escapeHtml(row.preview)}...</td>
         <td>${new Date(row.created_at).toLocaleString()}</td>
         <td><button onclick="deleteDoc(${row.id})">Delete</button></td>
       </tr>
@@ -153,7 +166,7 @@ input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
 <h1>⚙️ Admin – Manage Documents</h1>
 <div class="form-add">
   <h3>➕ Add New Document (JSON)</h3>
-  <input type="text" id="newFilename" placeholder="Filename (e.g., plan.pdf)">
+  <input type="text" id="newFilename" placeholder="Filename">
   <textarea id="newContent" rows="5" placeholder="Document content..."></textarea>
   <button onclick="addDocument()">Add Document</button>
   <div id="addStatus"></div>
@@ -235,7 +248,7 @@ app.delete('/api/admin/delete-all', async (req, res) => {
   }
 });
 
-// ---------- DEBUG ENDPOINTS ----------
+// Debug endpoints
 app.get('/api/list-docs', async (req, res) => {
   const docs = await pool.query('SELECT id, filename, LEFT(content, 200) as preview FROM documents');
   res.json(docs.rows);
@@ -245,7 +258,9 @@ app.get('/api/debug', async (req, res) => {
   res.json({ count: parseInt(count.rows[0].count) });
 });
 
-// ---------- MAIN HTML PAGE (with admin link) ----------
+// ------------------------------------------------------------------
+// MAIN HTML PAGE (with admin link)
+// ------------------------------------------------------------------
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
@@ -306,4 +321,4 @@ async function uploadDoc() {
 </html>`);
 });
 
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
