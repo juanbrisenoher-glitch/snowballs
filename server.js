@@ -7,115 +7,74 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ------------------------------------------------------------------
-// DATABASE CONNECTION (hardcoded with your URL)
-// ------------------------------------------------------------------
 const pool = new Pool({
   connectionString: 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway',
   ssl: { rejectUnauthorized: false }
 });
 
-// Groq client – uses environment variable GROQ_API_KEY (set in Railway)
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+// Immediately set schema search path
+pool.query('SET search_path TO public;').catch(console.error);
 
-// Multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(express.json());
 app.use(express.static('public'));
 
-// ------------------------------------------------------------------
-// DEBUG ENDPOINT – check database connection and table rows
-// ------------------------------------------------------------------
+// Debug endpoint
 app.get('/api/debug-db', async (req, res) => {
   try {
-    const dbResult = await pool.query('SELECT current_database() as db_name');
-    const countResult = await pool.query('SELECT COUNT(*) FROM documents');
-    res.json({
-      database: dbResult.rows[0].db_name,
-      documents_count: parseInt(countResult.rows[0].count),
-      message: 'Connection successful'
-    });
+    const db = await pool.query('SELECT current_database() as db');
+    const count = await pool.query('SELECT COUNT(*) FROM public.documents');
+    res.json({ database: db.rows[0].db, documents_count: parseInt(count.rows[0].count) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ------------------------------------------------------------------
-// CHAT ENDPOINT – searches documents and answers with Groq
-// ------------------------------------------------------------------
+// Chat endpoint (using public.documents)
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is required' });
-
   try {
-    // Search documents by content or filename
     const result = await pool.query(
-      `SELECT filename, content 
-       FROM documents 
-       WHERE content ILIKE $1 OR filename ILIKE $1
-       LIMIT 5`,
+      `SELECT filename, content FROM public.documents 
+       WHERE content ILIKE $1 OR filename ILIKE $1 LIMIT 5`,
       [`%${message}%`]
     );
-
     if (result.rows.length === 0) {
-      return res.json({ reply: "I couldn't find any information about that in your uploaded documents. Try a different question or upload more documents." });
+      return res.json({ reply: "No matching information in uploaded documents." });
     }
-
-    // Build context from retrieved documents
-    const context = result.rows
-      .map(row => `[File: ${row.filename}]\n${row.content.substring(0, 2000)}`)
-      .join('\n\n');
-
-    const chatCompletion = await groq.chat.completions.create({
+    const context = result.rows.map(r => `[${r.filename}]\n${r.content.substring(0,2000)}`).join('\n\n');
+    const completion = await groq.chat.completions.create({
       messages: [
-        {
-          role: 'system',
-          content: `You are a strict document‑based assistant. Answer ONLY using the context below. Do not use any outside knowledge. If the answer is not in the context, say: "I don't have that information in the uploaded documents."
-
-Context:
-${context}`
-        },
+        { role: 'system', content: `Answer ONLY using the context below. If not found, say "I don't know".\n\nContext:\n${context}` },
         { role: 'user', content: message }
       ],
       model: 'llama-3.1-8b-instant',
       temperature: 0.3,
-      max_tokens: 1024,
     });
-
-    res.json({ reply: chatCompletion.choices[0].message.content });
+    res.json({ reply: completion.choices[0].message.content });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ------------------------------------------------------------------
-// DOCUMENT UPLOAD ENDPOINT (for Scan Document tab)
-// ------------------------------------------------------------------
+// Upload endpoint (using public.documents)
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-
+    if (!req.file) return res.status(400).json({ error: 'No file' });
     const filename = req.file.originalname;
-    const content = req.file.buffer.toString('utf-8'); // works for .txt files
-
+    const content = req.file.buffer.toString('utf-8');
     const result = await pool.query(
-      'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
+      'INSERT INTO public.documents (filename, content) VALUES ($1, $2) RETURNING id',
       [filename, content]
     );
-
-    res.json({ success: true, id: result.rows[0].id, message: 'Document uploaded and scanned successfully' });
+    res.json({ success: true, id: result.rows[0].id });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server on port ${PORT}`));
