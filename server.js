@@ -6,6 +6,7 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Your exact database URL (hardcoded)
 const DATABASE_URL = 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
 
 const pool = new Pool({
@@ -13,6 +14,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Auto-create documents table
 pool.query(`
   CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
@@ -29,6 +31,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 app.use(express.json());
 
+// Helper to detect binary files
 function containsNullBytes(buffer) {
   for (let i = 0; i < Math.min(buffer.length, 4096); i++) {
     if (buffer[i] === 0) return true;
@@ -36,6 +39,7 @@ function containsNullBytes(buffer) {
   return false;
 }
 
+// Embedded HTML interface
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -130,6 +134,7 @@ app.get('/', (req, res) => {
   `);
 });
 
+// Debug endpoint to see how many documents are stored
 app.get('/api/debug', async (req, res) => {
   try {
     const countRes = await pool.query('SELECT COUNT(*) FROM documents');
@@ -139,12 +144,13 @@ app.get('/api/debug', async (req, res) => {
   }
 });
 
-// STRICT DOCUMENT-ONLY CHAT (no general knowledge)
+// STRICT DOCUMENT-ONLY CHAT – no outside knowledge
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
 
   try {
+    // Search documents for relevant content
     const docs = await pool.query(
       `SELECT filename, content FROM documents 
        WHERE content ILIKE $1 OR filename ILIKE $1 
@@ -156,8 +162,10 @@ app.post('/api/chat', async (req, res) => {
       return res.json({ reply: "I don't have any documents that answer that. Please upload a document containing that information." });
     }
 
+    // Build context from the matched documents (limit to 2000 chars each)
     const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
 
+    // Strict system prompt – answer ONLY from context
     const systemPrompt = `You are a strict document-based assistant. Answer the user's question using ONLY the text below. 
 If the answer is not explicitly stated in the documents, say "I don't have that information in my documents." 
 Do NOT use any outside knowledge, including general facts about savings plans, investments, or Medicare beyond what is written.
@@ -182,24 +190,30 @@ ${context}`;
   }
 });
 
-// Upload endpoint with strict validation
+// Document upload endpoint with binary detection and sanitization
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const filename = req.file.originalname;
     if (!filename.toLowerCase().endsWith('.txt')) {
-      return res.status(400).json({ error: 'Only .txt files are supported.' });
+      return res.status(400).json({ error: 'Only .txt files are supported. Please create a plain text file using Notepad.' });
     }
     if (containsNullBytes(req.file.buffer)) {
       return res.status(400).json({ error: 'File contains binary data. Please save as plain text (UTF-8).' });
     }
     let content = req.file.buffer.toString('utf-8');
+    // Remove problematic control characters
     content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
     if (!content.trim()) return res.status(400).json({ error: 'File is empty.' });
     const result = await pool.query(
       'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
       [filename, content]
     );
-    res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} chars)` });
+    res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} characters)` });
   } catch (err) {
-    console.error('Upload error
+    console.error('Upload error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
