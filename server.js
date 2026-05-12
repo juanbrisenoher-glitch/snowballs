@@ -38,6 +38,15 @@ function containsNullBytes(buffer) {
   return false;
 }
 
+// Helper: extract meaningful keywords from a question
+function extractKeywords(text) {
+  // Remove common English stop words and short words
+  const stopWords = new Set(['what', 'does', 'the', 'a', 'an', 'and', 'or', 'of', 'to', 'for', 'in', 'on', 'at', 'with', 'without', 'is', 'are', 'was', 'were', 'be', 'by', 'this', 'that', 'these', 'those', 'from', 'as', 'but', 'not', 'so', 'such', 'which', 'who', 'whom', 'whose', 'has', 'have', 'had', 'can', 'could', 'will', 'would', 'should', 'do', 'does', 'did', 'cover', 'covers', 'covered', 'tell', 'explain', 'describe', 'please', 'about']);
+  const words = text.toLowerCase().split(/[^\w-]+/);
+  const keywords = words.filter(w => w.length > 2 && !stopWords.has(w));
+  return keywords;
+}
+
 // ---------- Main chat interface ----------
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -115,7 +124,7 @@ function showStatus(msg, type) {
 </html>`);
 });
 
-// ---------- Admin dashboard ----------
+// ---------- Admin dashboard (unchanged, but included for completeness) ----------
 app.get('/admin', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, filename, created_at, LEFT(content, 100) as preview FROM documents ORDER BY id');
@@ -132,7 +141,7 @@ app.get('/admin', async (req, res) => {
       <tr>
         <td>${row.id}</td>
         <td>${escapeHtml(row.filename)}</td>
-        <td>${escapeHtml(row.preview)}...</td>
+        <td>${escapeHtml(row.preview)}...${row.preview ? '' : ''}</td>
         <td>${new Date(row.created_at).toLocaleString()}</td>
         <td><button onclick="deleteDoc(${row.id})">Delete</button></td>
       </tr>
@@ -208,7 +217,7 @@ async function deleteAll() {
   }
 });
 
-// ---------- Admin API endpoints ----------
+// ---------- Admin API ----------
 app.post('/api/admin/add', async (req, res) => {
   const { filename, content } = req.body;
   if (!filename || !content) return res.status(400).json({ error: 'Filename and content required' });
@@ -257,20 +266,37 @@ app.get('/api/list-docs', async (req, res) => {
   }
 });
 
-// ---------- Strict document-only chat ----------
+// ---------- FIXED CHAT ENDPOINT with keyword search ----------
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
+
   try {
-    const docs = await pool.query(
+    // First, try a simple ILIKE on the whole message (exact phrase)
+    let docs = await pool.query(
       `SELECT filename, content FROM documents 
        WHERE content ILIKE $1 OR filename ILIKE $1 
        LIMIT 5`,
       [`%${message}%`]
     );
+
+    // If no results, fallback to keyword extraction
+    if (docs.rows.length === 0) {
+      const keywords = extractKeywords(message);
+      if (keywords.length > 0) {
+        // Build OR condition for each keyword
+        const conditions = keywords.map((kw, i) => `(content ILIKE $${i+1} OR filename ILIKE $${i+1})`).join(' OR ');
+        const values = keywords.map(kw => `%${kw}%`);
+        const query = `SELECT filename, content FROM documents WHERE ${conditions} LIMIT 5`;
+        docs = await pool.query(query, values);
+      }
+    }
+
     if (docs.rows.length === 0) {
       return res.json({ reply: "I don't have any documents that answer that. Please upload a document containing that information." });
     }
+
+    // Build context
     const context = docs.rows.map(d => `[${d.filename}]:\n${d.content.substring(0, 2000)}`).join('\n\n');
     const systemPrompt = `You are a strict document-based assistant. Answer the user's question using ONLY the text below. 
 If the answer is not explicitly stated in the documents, say "I don't have that information in my documents." 
@@ -278,6 +304,7 @@ Do NOT use any outside knowledge.
 
 Documents:
 ${context}`;
+
     const completion = await groq.chat.completions.create({
       messages: [
         { role: 'system', content: systemPrompt },
@@ -287,9 +314,10 @@ ${context}`;
       temperature: 0.3,
       max_tokens: 1024,
     });
+
     res.json({ reply: completion.choices[0].message.content });
   } catch (err) {
-    console.error(err);
+    console.error('Chat error:', err);
     res.status(500).json({ error: err.message });
   }
 });
