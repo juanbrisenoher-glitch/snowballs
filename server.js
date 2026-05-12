@@ -8,22 +8,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ------------------------------------------------------------------
-// DATABASE CONNECTION
+// DATABASE CONNECTION (hardcoded with your URL)
 // ------------------------------------------------------------------
-// 🔁 OPTION 1: Use environment variable (normal)
-// const pool = new Pool({
-//   connectionString: process.env.DATABASE_URL,
-//   ssl: { rejectUnauthorized: false }
-// });
-
-// 🔁 OPTION 2: Hardcode your Postgres-vgQH URL (for testing only)
-//    Replace 'postgresql://...' with the actual DATABASE_URL from Postgres-vgQH Variables
 const pool = new Pool({
-  connectionString: 'postgresql://postgres:password@host:port/railway', // <-- PASTE YOUR URL HERE
+  connectionString: 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway',
   ssl: { rejectUnauthorized: false }
 });
 
-// Groq client (uses environment variable GROQ_API_KEY)
+// Groq client – uses environment variable GROQ_API_KEY (set in Railway)
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
@@ -36,15 +28,15 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // ------------------------------------------------------------------
-// DEBUG ENDPOINT – shows which database we are connected to
+// DEBUG ENDPOINT – check database connection and table rows
 // ------------------------------------------------------------------
 app.get('/api/debug-db', async (req, res) => {
   try {
-    const result = await pool.query('SELECT current_database() as db_name');
-    const count = await pool.query('SELECT COUNT(*) FROM documents');
+    const dbResult = await pool.query('SELECT current_database() as db_name');
+    const countResult = await pool.query('SELECT COUNT(*) FROM documents');
     res.json({
-      database: result.rows[0].db_name,
-      documents_count: parseInt(count.rows[0].count),
+      database: dbResult.rows[0].db_name,
+      documents_count: parseInt(countResult.rows[0].count),
       message: 'Connection successful'
     });
   } catch (err) {
@@ -60,7 +52,7 @@ app.post('/api/chat', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    // Search documents (full text search on content column)
+    // Search documents by content or filename
     const result = await pool.query(
       `SELECT filename, content 
        FROM documents 
@@ -102,14 +94,14 @@ ${context}`
 });
 
 // ------------------------------------------------------------------
-// DOCUMENT UPLOAD ENDPOINT (for the Scan Document tab)
+// DOCUMENT UPLOAD ENDPOINT (for Scan Document tab)
 // ------------------------------------------------------------------
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     const filename = req.file.originalname;
-    const content = req.file.buffer.toString('utf-8'); // assumes .txt files
+    const content = req.file.buffer.toString('utf-8'); // works for .txt files
 
     const result = await pool.query(
       'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
