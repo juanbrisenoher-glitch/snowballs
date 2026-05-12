@@ -6,6 +6,7 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Your exact database URL (hardcoded to avoid env issues)
 const DATABASE_URL = 'postgresql://postgres:dSKgiSWkgHDXHaxxULtGRgynxHDjfGtN@postgres.railway.internal:5432/railway';
 
 const pool = new Pool({
@@ -13,7 +14,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Auto-create table
+// Auto-create documents table
 pool.query(`
   CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
@@ -30,12 +31,15 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 app.use(express.json());
 
-// Helper to sanitize text
-function sanitizeText(text) {
-  return text.replace(/\0/g, '').replace(/[^\x09\x0A\x0D\x20-\x7E\x80-\xFF]/g, '');
+// Helper: check if buffer contains null bytes (binary)
+function containsNullBytes(buffer) {
+  for (let i = 0; i < Math.min(buffer.length, 4096); i++) {
+    if (buffer[i] === 0) return true;
+  }
+  return false;
 }
 
-// HTML interface (embedded)
+// Embedded HTML interface
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -179,35 +183,41 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Upload endpoint with sanitization
+// Upload endpoint with binary detection and sanitization
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     const filename = req.file.originalname;
-    // Only allow .txt
+
+    // Only allow .txt files
     if (!filename.toLowerCase().endsWith('.txt')) {
-      return res.status(400).json({ error: 'Only .txt files are supported' });
+      return res.status(400).json({ error: 'Only .txt files are supported. Please create a plain text file using Notepad.' });
     }
 
-    let rawContent = req.file.buffer.toString('utf-8');
-    let content = sanitizeText(rawContent);
+    // Check for binary content (null bytes)
+    if (containsNullBytes(req.file.buffer)) {
+      return res.status(400).json({ error: 'The file contains binary data. Please save it as plain text (UTF-8) using a text editor like Notepad, not Word or PDF.' });
+    }
+
+    // Convert to string and strip non-printable characters
+    let content = req.file.buffer.toString('utf-8');
+    content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // remove control chars except tab/newline
     
     if (!content.trim()) {
-      return res.status(400).json({ error: 'File contains no readable text after cleaning.' });
+      return res.status(400).json({ error: 'File is empty or contains only invalid characters.' });
     }
 
     const result = await pool.query(
       'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
       [filename, content]
     );
-    res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} chars)` });
+    res.json({ success: true, id: result.rows[0].id, message: `Uploaded ${filename} (${content.length} characters)` });
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
