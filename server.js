@@ -1,5 +1,4 @@
 const express = require('express');
-const path = require('path');
 const Groq = require('groq-sdk');
 const multer = require('multer');
 const { Pool } = require('pg');
@@ -14,7 +13,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Auto-create table with proper columns
+// Auto-create table
 pool.query(`
   CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
@@ -30,7 +29,11 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(express.json());
-app.use(express.static('public'));
+
+// Helper to sanitize text
+function sanitizeText(text) {
+  return text.replace(/\0/g, '').replace(/[^\x09\x0A\x0D\x20-\x7E\x80-\xFF]/g, '');
+}
 
 // HTML interface (embedded)
 app.get('/', (req, res) => {
@@ -55,7 +58,7 @@ app.get('/', (req, res) => {
     <input type="text" id="question" placeholder="Ask anything..." style="width: 70%">
     <button onclick="ask()">Send</button>
     <hr>
-    <h3>📤 Upload Document (TXT files)</h3>
+    <h3>📤 Upload Document (TXT files only)</h3>
     <input type="file" id="fileInput" accept=".txt">
     <button onclick="uploadDoc()">Upload</button>
     <div id="status" class="status"></div>
@@ -92,12 +95,16 @@ app.get('/', (req, res) => {
         async function uploadDoc() {
             const file = document.getElementById('fileInput').files[0];
             if (!file) {
-                showStatus('Please select a file', 'error');
+                showStatus('Please select a .txt file', 'error');
+                return;
+            }
+            if (!file.name.endsWith('.txt')) {
+                showStatus('Only .txt files are supported', 'error');
                 return;
             }
             const formData = new FormData();
             formData.append('document', file);
-            showStatus('Uploading...', 'info');
+            showStatus('Uploading...');
             try {
                 const res = await fetch('/api/upload-document', { method: 'POST', body: formData });
                 const data = await res.json();
@@ -123,32 +130,22 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Debug endpoint to see table schema and row count
+// Debug endpoint
 app.get('/api/debug', async (req, res) => {
   try {
     const countRes = await pool.query('SELECT COUNT(*) FROM documents');
-    const columnsRes = await pool.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'documents' 
-      ORDER BY ordinal_position
-    `);
-    res.json({
-      row_count: parseInt(countRes.rows[0].count),
-      columns: columnsRes.rows
-    });
+    res.json({ documents_count: parseInt(countRes.rows[0].count) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// CONVERSATIONAL CHAT: uses documents if relevant, otherwise chats normally
+// Conversational chat endpoint
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
 
   try {
-    // First, search for relevant documents
     const docs = await pool.query(
       `SELECT filename, content FROM documents 
        WHERE content ILIKE $1 OR filename ILIKE $1 
@@ -161,7 +158,6 @@ app.post('/api/chat', async (req, res) => {
       context = docs.rows.map(d => `[${d.filename}]: ${d.content.substring(0, 1500)}`).join('\n\n');
     }
 
-    // System prompt: conversational, but uses documents if provided
     const systemPrompt = context 
       ? `You are a helpful assistant. Use the following documents to answer the user's question if relevant. If the answer is not in the documents, say so, but you can also chat normally. Be friendly and concise.\n\nDocuments:\n${context}`
       : `You are a helpful assistant. The user has no documents uploaded yet, so just chat normally. Be friendly and helpful.`;
@@ -183,22 +179,25 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Upload endpoint with detailed error
+// Upload endpoint with sanitization
 app.post('/api/upload-document', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     const filename = req.file.originalname;
-    let content = '';
-    try {
-      content = req.file.buffer.toString('utf-8');
-    } catch (err) {
-      return res.status(400).json({ error: 'File encoding error: ' + err.message });
+    // Only allow .txt
+    if (!filename.toLowerCase().endsWith('.txt')) {
+      return res.status(400).json({ error: 'Only .txt files are supported' });
     }
+
+    let rawContent = req.file.buffer.toString('utf-8');
+    let content = sanitizeText(rawContent);
+    
     if (!content.trim()) {
-      return res.status(400).json({ error: 'File is empty' });
+      return res.status(400).json({ error: 'File contains no readable text after cleaning.' });
     }
+
     const result = await pool.query(
       'INSERT INTO documents (filename, content) VALUES ($1, $2) RETURNING id',
       [filename, content]
@@ -210,4 +209,5 @@ app.post('/api/upload-document', upload.single('document'), async (req, res) => 
   }
 });
 
+app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
 app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
